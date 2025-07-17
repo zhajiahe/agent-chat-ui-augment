@@ -20,7 +20,6 @@ import { toast } from "sonner";
 import { TooltipIconButton } from "@/components/thread/tooltip-icon-button";
 
 // Default values for the form
-const DEFAULT_API_URL = "http://localhost:2024";
 const DEFAULT_ASSISTANT_ID = "agent";
 
 interface SettingsDialogProps {
@@ -32,13 +31,9 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
   const [open, setOpen] = useState(false);
   
   // Get environment variables
-  const envApiUrl: string | undefined = process.env.NEXT_PUBLIC_API_URL;
   const envAssistantId: string | undefined = process.env.NEXT_PUBLIC_ASSISTANT_ID;
 
   // Use URL params with env var fallbacks
-  const [apiUrl, setApiUrl] = useQueryState("apiUrl", {
-    defaultValue: envApiUrl || "",
-  });
   const [assistantId, setAssistantId] = useQueryState("assistantId", {
     defaultValue: envAssistantId || "",
   });
@@ -59,12 +54,10 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
 
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
-    const newApiUrl = formData.get("apiUrl") as string;
     const newAssistantId = formData.get("assistantId") as string;
     const newApiKey = formData.get("apiKey") as string;
 
     // Update the values
-    setApiUrl(newApiUrl);
     setApiKey(newApiKey);
     setAssistantId(newAssistantId);
 
@@ -107,20 +100,15 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="apiUrl">
-              Deployment URL<span className="text-rose-500">*</span>
-            </Label>
-            <p className="text-muted-foreground text-sm">
-              This is the URL of your LangGraph deployment. Can be a local, or production deployment.
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="text-sm font-medium text-blue-900">API Connection</span>
+            </div>
+            <p className="text-sm text-blue-800">
+              API requests are securely routed through the internal server proxy. 
+              The LangGraph API URL is configured server-side for security.
             </p>
-            <Input
-              id="apiUrl"
-              name="apiUrl"
-              defaultValue={apiUrl || DEFAULT_API_URL}
-              placeholder="http://localhost:2024"
-              required
-            />
           </div>
 
           <div className="space-y-2">
@@ -142,7 +130,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
           <div className="space-y-2">
             <Label htmlFor="apiKey">LangSmith API Key</Label>
             <p className="text-muted-foreground text-sm">
-              This is <strong>NOT</strong> required if using a local LangGraph server. This value is stored in your browser's local storage and is only used to authenticate requests sent to your LangGraph server.
+              This is <strong>NOT</strong> required if your server is configured with API keys. This value is stored in your browser's local storage and is only used to authenticate requests sent through the proxy server.
             </p>
             <PasswordInput
               id="apiKey"

@@ -120,21 +120,16 @@ const StreamSession = ({
 };
 
 // Default values for the form
-const DEFAULT_API_URL = "http://localhost:2024";
 const DEFAULT_ASSISTANT_ID = "agent";
 
 export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   // Get environment variables
-  const envApiUrl: string | undefined = process.env.NEXT_PUBLIC_API_URL;
   const envAssistantId: string | undefined =
     process.env.NEXT_PUBLIC_ASSISTANT_ID;
 
-  // Use URL params with env var fallbacks
-  const [apiUrl] = useQueryState("apiUrl", {
-    defaultValue: envApiUrl || "",
-  });
+  // Use URL params with env var fallbacks for assistant ID only
   const [assistantId] = useQueryState("assistantId", {
     defaultValue: envAssistantId || "",
   });
@@ -145,8 +140,8 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
     return storedKey || "";
   });
 
-  // Determine final values to use, prioritizing URL params then env vars then defaults
-  const finalApiUrl = apiUrl || envApiUrl || DEFAULT_API_URL;
+  // API URL is now fixed to use the internal proxy
+  const finalApiUrl = "/api";
   const finalAssistantId = assistantId || envAssistantId || DEFAULT_ASSISTANT_ID;
 
   return (
