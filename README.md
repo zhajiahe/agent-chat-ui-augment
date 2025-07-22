@@ -62,11 +62,13 @@ NEXT_PUBLIC_ASSISTANT_ID=agent
 
 To use these variables:
 
-1. Copy the `.env.example` file to a new file named `.env`
-2. Fill in the values in the `.env` file
+1. Copy the `env.example` file to a new file named `.env.local`
+2. Fill in the values in the `.env.local` file with your deployment details
 3. Restart the application
 
 When these environment variables are set, the application will use them instead of showing the setup form.
+
+For private deployment configuration, see [PRIVATE_DEPLOYMENT.md](./PRIVATE_DEPLOYMENT.md).
 
 ## Hiding Messages in the Chat
 
@@ -192,51 +194,83 @@ Once you're ready to go to production, you'll need to update how you connect, an
 
 To productionize the Agent Chat UI, you'll need to pick one of two ways to authenticate requests to your LangGraph server. Below, I'll outline the two options:
 
-### Quickstart - API Passthrough
+### Quickstart - API Passthrough (Private Deployment)
 
 The quickest way to productionize the Agent Chat UI is to use the [API Passthrough](https://github.com/langchain-ai/langgraph-nextjs-api-passthrough) package. This package provides a simple way to proxy requests to your LangGraph server, and handle authentication for you.
 
-This repository already contains all of the code you need to start using this method. The only configuration you need to do is set the proper environment variables.
+This repository has been configured for private deployment. The API URL is automatically routed through an internal proxy for security. The only configuration you need to do is set the proper environment variables.
 
 ```bash
 NEXT_PUBLIC_ASSISTANT_ID="agent"
-# This should be the deployment URL of your LangGraph server
+# This should be the deployment URL of your LangGraph server (server-side only)
 LANGGRAPH_API_URL="https://my-agent.default.us.langgraph.app"
-# This should be the URL of your website + "/api". This is how you connect to the API proxy
-NEXT_PUBLIC_API_URL="https://my-website.com/api"
-# Your LangSmith API key which is injected into requests inside the API proxy
+# Your LangSmith API key which is injected into requests inside the API proxy (server-side only)
 LANGSMITH_API_KEY="lsv2_..."
 ```
 
 Let's cover what each of these environment variables does:
 
 - `NEXT_PUBLIC_ASSISTANT_ID`: The ID of the assistant you want to use when fetching, and submitting runs via the chat interface. This still needs the `NEXT_PUBLIC_` prefix, since it's not a secret, and we use it on the client when submitting requests.
-- `LANGGRAPH_API_URL`: The URL of your LangGraph server. This should be the production deployment URL.
-- `NEXT_PUBLIC_API_URL`: The URL of your website + `/api`. This is how you connect to the API proxy. For the [Agent Chat demo](https://agentchat.vercel.app), this would be set as `https://agentchat.vercel.app/api`. You should set this to whatever your production URL is.
-- `LANGSMITH_API_KEY`: Your LangSmith API key to use when authenticating requests sent to LangGraph servers. Once again, do _not_ prefix this with `NEXT_PUBLIC_` since it's a secret, and is only used on the server when the API proxy injects it into the request to your deployed LangGraph server.
+- `LANGGRAPH_API_URL`: The URL of your LangGraph server. This should be the production deployment URL. This is kept private on the server side and not exposed to clients.
+- `LANGSMITH_API_KEY`: Your LangSmith API key to use when authenticating requests sent to LangGraph servers. This is a secret that is only used on the server when the API proxy injects it into the request to your deployed LangGraph server.
 
-For in depth documentation, consult the [LangGraph Next.js API Passthrough](https://www.npmjs.com/package/langgraph-nextjs-api-passthrough) docs.
+**Important Notes for Private Deployment:**
+- Do NOT set `NEXT_PUBLIC_API_URL` - the application now uses an internal proxy for security
+- All API requests are automatically routed through `/api/*` endpoints
+- Users cannot modify the API server address in the settings
+- The real LangGraph server URL is completely hidden from clients
 
-### Advanced Setup - Custom Authentication
+For detailed deployment instructions, see [PRIVATE_DEPLOYMENT.md](./PRIVATE_DEPLOYMENT.md).
+
+For in depth documentation about the API passthrough package, consult the [LangGraph Next.js API Passthrough](https://www.npmjs.com/package/langgraph-nextjs-api-passthrough) docs.
+
+### Advanced Setup - Custom Authentication (Private Deployment)
 
 Custom authentication in your LangGraph deployment is an advanced, and more robust way of authenticating requests to your LangGraph server. Using custom authentication, you can allow requests to be made from the client, without the need for a LangSmith API key. Additionally, you can specify custom access controls on requests.
 
+**Note**: In the private deployment configuration, custom authentication requires modification of the internal API proxy rather than direct client-side configuration.
+
 To set this up in your LangGraph deployment, please read the LangGraph custom authentication docs for [Python](https://langchain-ai.github.io/langgraph/tutorials/auth/getting_started/), and [TypeScript here](https://langchain-ai.github.io/langgraphjs/how-tos/auth/custom_auth/).
 
-Once you've set it up on your deployment, you should make the following changes to the Agent Chat UI:
+Once you've set up custom authentication on your LangGraph deployment, you should make the following changes to the Agent Chat UI:
 
-1. Configure any additional API requests to fetch the authentication token from your LangGraph deployment which will be used to authenticate requests from the client.
-2. Set the `NEXT_PUBLIC_API_URL` environment variable to your production LangGraph deployment URL.
-3. Set the `NEXT_PUBLIC_ASSISTANT_ID` environment variable to the ID of the assistant you want to use when fetching, and submitting runs via the chat interface.
-4. Modify the [`useTypedStream`](src/providers/Stream.tsx) (extension of `useStream`) hook to pass your authentication token through headers to the LangGraph server:
+1. **Configure the API proxy** - Modify [`src/app/api/[..._path]/route.ts`](src/app/api/[..._path]/route.ts) to handle your custom authentication:
+   ```typescript
+   export const { GET, POST, PUT, PATCH, DELETE, OPTIONS, runtime } =
+     initApiPassthrough({
+       apiUrl: process.env.LANGGRAPH_API_URL,
+       apiKey: process.env.LANGSMITH_API_KEY,
+       runtime: "edge",
+       // Add custom headers or authentication logic here
+       defaultHeaders: {
+         Authorization: `Bearer ${process.env.CUSTOM_AUTH_TOKEN}`,
+       },
+     });
+   ```
 
-```tsx
-const streamValue = useTypedStream({
-  apiUrl: process.env.NEXT_PUBLIC_API_URL,
-  assistantId: process.env.NEXT_PUBLIC_ASSISTANT_ID,
-  // ... other fields
-  defaultHeaders: {
-    Authentication: `Bearer ${addYourTokenHere}`, // this is where you would pass your authentication token
-  },
-});
-```
+2. **Set environment variables**:
+   ```bash
+   LANGGRAPH_API_URL="https://your-custom-auth-deployment.com"
+   NEXT_PUBLIC_ASSISTANT_ID="your-assistant-id"
+   CUSTOM_AUTH_TOKEN="your-custom-token"
+   ```
+
+3. **Optional client-side token handling** - If you need dynamic token management, modify the [`useTypedStream`](src/providers/Stream.tsx) hook to pass additional headers:
+   ```tsx
+   const streamValue = useTypedStream({
+     apiUrl: finalApiUrl, // This will be the internal proxy URL
+     assistantId: finalAssistantId,
+     // ... other fields
+     defaultHeaders: {
+       "X-Custom-Auth": dynamicToken, // Custom headers for your use case
+     },
+   });
+   ```
+
+**Important Considerations for Private Deployment:**
+- Authentication configuration happens on the server-side proxy, not the client
+- The real LangGraph server URL remains hidden from clients
+- Custom tokens and credentials should be managed through environment variables
+- Client-side authentication tokens (if needed) should be obtained through secure API endpoints
+
+For more details on private deployment architecture, see [PRIVATE_DEPLOYMENT.md](./PRIVATE_DEPLOYMENT.md).
