@@ -95,7 +95,7 @@ function OpenGitHubRepo() {
       <Tooltip>
         <TooltipTrigger asChild>
           <a
-            href="https://github.com/langchain-ai/agent-chat-ui"
+            href="https://github.com/zhajiahe/agent-chat-ui-augment"
             target="_blank"
             className="flex items-center justify-center"
           >
@@ -126,6 +126,18 @@ export function Thread() {
     "hideToolCalls",
     parseAsBoolean.withDefault(false),
   );
+  
+  // Configuration parameters from settings
+  const [llmModel] = useQueryState("llmModel", {
+    defaultValue: "google/gemini-2.5-flash",
+  });
+  const [provider] = useQueryState("provider", {
+    defaultValue: "openrouter",
+  });
+  const [dbUrl] = useQueryState("dbUrl", {
+    defaultValue: "",
+  });
+
   const [input, setInput] = useState("");
   const {
     contentBlocks,
@@ -200,6 +212,24 @@ export function Thread() {
     e.preventDefault();
     if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
       return;
+
+    // Check if db_url is configured
+    if (!dbUrl || dbUrl.trim().length === 0) {
+      toast.error("Database URL not configured", {
+        description: (
+          <p>
+            Please configure the Database URL in settings before sending messages.
+            <br />
+            <strong>Supported:</strong> sqlite, mysql, postgresql, excel/csv, s3, minio
+          </p>
+        ),
+        richColors: true,
+        closeButton: true,
+        duration: 5000,
+      });
+      return;
+    }
+
     setFirstTokenReceived(false);
 
     const newHumanMessage: Message = {
@@ -216,10 +246,18 @@ export function Thread() {
     const context =
       Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
 
+    const config = {
+      configurable: {
+        llm_model: llmModel,
+        provider: provider,
+        db_url: dbUrl
+      }
+    }
     stream.submit(
       { messages: [...toolMessages, newHumanMessage], context },
       {
         streamMode: ["values"],
+        config,
         optimisticValues: (prev) => ({
           ...prev,
           context,
@@ -370,10 +408,6 @@ export function Thread() {
               </div>
 
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <SettingsDialog />
-                  <OpenGitHubRepo />
-                </div>
                 <TooltipIconButton
                   size="lg"
                   className="p-4"

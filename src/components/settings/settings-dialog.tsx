@@ -12,15 +12,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PasswordInput } from "@/components/ui/password-input";
 import { Settings, ArrowRight } from "lucide-react";
 import { LangGraphLogoSVG } from "@/components/icons/langgraph";
-import { getApiKey } from "@/lib/api-key";
 import { toast } from "sonner";
 import { TooltipIconButton } from "@/components/thread/tooltip-icon-button";
 
 // Default values for the form
 const DEFAULT_ASSISTANT_ID = "agent";
+const DEFAULT_LLM_MODEL = "google/gemini-2.5-flash";
+const DEFAULT_PROVIDER = "openrouter";
 
 interface SettingsDialogProps {
   variant?: "button" | "icon";
@@ -38,16 +38,17 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
     defaultValue: envAssistantId || "",
   });
 
-  // For API key, use localStorage with env var fallback
-  const [apiKey, _setApiKey] = useState(() => {
-    const storedKey = getApiKey();
-    return storedKey || "";
+  const [llmModel, setLlmModel] = useQueryState("llmModel", {
+    defaultValue: DEFAULT_LLM_MODEL,
   });
 
-  const setApiKey = (key: string) => {
-    window.localStorage.setItem("lg:chat:apiKey", key);
-    _setApiKey(key);
-  };
+  const [provider, setProvider] = useQueryState("provider", {
+    defaultValue: DEFAULT_PROVIDER,
+  });
+
+  const [dbUrl, setDbUrl] = useQueryState("dbUrl", {
+    defaultValue: "",
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,11 +56,15 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
     const newAssistantId = formData.get("assistantId") as string;
-    const newApiKey = formData.get("apiKey") as string;
+    const newLlmModel = formData.get("llmModel") as string;
+    const newProvider = formData.get("provider") as string;
+    const newDbUrl = formData.get("dbUrl") as string;
 
     // Update the values
-    setApiKey(newApiKey);
     setAssistantId(newAssistantId);
+    setLlmModel(newLlmModel);
+    setProvider(newProvider);
+    setDbUrl(newDbUrl);
 
     // Show success message
     toast.success("Settings updated successfully!");
@@ -128,15 +133,49 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="apiKey">LangSmith API Key</Label>
+            <Label htmlFor="llmModel">
+              LLM Model<span className="text-rose-500">*</span>
+            </Label>
             <p className="text-muted-foreground text-sm">
-              This is <strong>NOT</strong> required if your server is configured with API keys. This value is stored in your browser's local storage and is only used to authenticate requests sent through the proxy server.
+              Name of the language model to use. Must be a valid language model name.
             </p>
-            <PasswordInput
-              id="apiKey"
-              name="apiKey"
-              defaultValue={apiKey ?? ""}
-              placeholder="lsv2_pt_..."
+            <Input
+              id="llmModel"
+              name="llmModel"
+              defaultValue={llmModel || DEFAULT_LLM_MODEL}
+              placeholder="google/gemini-2.5-flash"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="provider">
+              Provider<span className="text-rose-500">*</span>
+            </Label>
+            <p className="text-muted-foreground text-sm">
+              Provider of the language model. Supported providers: openrouter, hf-mirror
+            </p>
+            <Input
+              id="provider"
+              name="provider"
+              defaultValue={provider || DEFAULT_PROVIDER}
+              placeholder="openrouter"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="dbUrl">
+              Database URL
+            </Label>
+            <p className="text-muted-foreground text-sm">
+              Database URL，支持sqlite, mysql, postgresql，excel/csv本地文件，s3, minio等
+            </p>
+            <Input
+              id="dbUrl"
+              name="dbUrl"
+              defaultValue={dbUrl || ""}
+              placeholder="sqlite:///path/to/database.db"
             />
           </div>
 
