@@ -535,7 +535,7 @@ export function Thread() {
                         </div>
                         <Label
                           htmlFor="file-input"
-                          className="flex cursor-pointer items-center gap-2"
+                          className="hidden flex cursor-pointer items-center gap-2"
                         >
                           <Plus className="size-5 text-gray-600" />
                           <span className="text-sm text-gray-600">
