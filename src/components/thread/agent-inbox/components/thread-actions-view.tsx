@@ -81,8 +81,12 @@ export function ThreadActionsView({
   } = useInterruptedActions({
     interrupt,
   });
-  const [apiUrl] = useQueryState("apiUrl");
+  // Remove apiUrl usage since it's not available in private deployment
+  // const [apiUrl] = useQueryState("apiUrl");
 
+  // Disable "Open in Studio" functionality for private deployment
+  // since users cannot access the external LangGraph server directly
+  /*
   const handleOpenInStudio = () => {
     if (!apiUrl) {
       toast.error("Error", {
@@ -97,6 +101,7 @@ export function ThreadActionsView({
     const studioUrl = constructOpenInStudioURL(apiUrl, threadId ?? undefined);
     window.open(studioUrl, "_blank");
   };
+  */
 
   const threadTitle = interrupt.action_request.action || "Unknown";
   const actionsDisabled = loading || streaming;
@@ -111,6 +116,8 @@ export function ThreadActionsView({
           {threadId && <ThreadIdCopyable threadId={threadId} />}
         </div>
         <div className="flex flex-row items-center justify-start gap-2">
+          {/* Disable Studio button in private deployment */}
+          {/*
           {apiUrl && (
             <Button
               size="sm"
@@ -121,6 +128,7 @@ export function ThreadActionsView({
               Studio
             </Button>
           )}
+          */}
           <ButtonGroup
             handleShowState={() => handleShowSidePanel(true, false)}
             handleShowDescription={() => handleShowSidePanel(false, true)}

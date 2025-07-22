@@ -33,25 +33,42 @@ function getThreadSearchMetadata(
   }
 }
 
+// Default values for the form
+const DEFAULT_ASSISTANT_ID = "agent";
+
 export function ThreadProvider({ children }: { children: ReactNode }) {
-  const [apiUrl] = useQueryState("apiUrl");
-  const [assistantId] = useQueryState("assistantId");
+  // Get environment variables for fallback
+  const envAssistantId: string | undefined = process.env.NEXT_PUBLIC_ASSISTANT_ID;
+  
+  // Use URL params with env var fallbacks for assistant ID, consistent with StreamProvider
+  const [assistantId] = useQueryState("assistantId", {
+    defaultValue: envAssistantId || "",
+  });
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
 
   const getThreads = useCallback(async (): Promise<Thread[]> => {
-    if (!apiUrl || !assistantId) return [];
+    // Use the fixed internal proxy API URL, consistent with StreamProvider
+    // Convert relative path to absolute URL for LangGraph SDK compatibility
+    const apiUrl = typeof window !== 'undefined' 
+      ? `${window.location.origin}/api`
+      : "/api";
+    
+    // Use the same fallback logic as StreamProvider
+    const finalAssistantId = assistantId || envAssistantId || DEFAULT_ASSISTANT_ID;
+    
+    if (!finalAssistantId) return [];
     const client = createClient(apiUrl, getApiKey() ?? undefined);
 
     const threads = await client.threads.search({
       metadata: {
-        ...getThreadSearchMetadata(assistantId),
+        ...getThreadSearchMetadata(finalAssistantId),
       },
       limit: 100,
     });
 
     return threads;
-  }, [apiUrl, assistantId]);
+  }, [assistantId, envAssistantId]); // Add envAssistantId to dependencies
 
   const value = {
     getThreads,

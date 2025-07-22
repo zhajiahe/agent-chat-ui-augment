@@ -141,7 +141,10 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   });
 
   // API URL is now fixed to use the internal proxy
-  const finalApiUrl = "/api";
+  // Convert relative path to absolute URL for LangGraph SDK compatibility
+  const finalApiUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/api`
+    : "/api";
   const finalAssistantId = assistantId || envAssistantId || DEFAULT_ASSISTANT_ID;
 
   return (
