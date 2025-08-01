@@ -97,98 +97,100 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <LangGraphLogoSVG className="h-6" />
-            <DialogTitle className="text-xl">Agent Chat Settings</DialogTitle>
+            <DialogTitle className="text-xl">设置</DialogTitle>
           </div>
           <DialogDescription>
             Configure your LangGraph deployment settings. These settings are saved in your browser and used to connect to your LangGraph server.
           </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-sm font-medium text-blue-900">API Connection</span>
+        <div className="max-h-[70vh] overflow-y-auto pr-1">
+          <form id="settingsForm" onSubmit={handleSubmit} className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm font-medium text-blue-900">API Connection</span>
+              </div>
+              <p className="text-sm text-blue-800">
+                API requests are securely routed through the internal server proxy. 
+                The LangGraph API URL is configured server-side for security.
+              </p>
             </div>
-            <p className="text-sm text-blue-800">
-              API requests are securely routed through the internal server proxy. 
-              The LangGraph API URL is configured server-side for security.
-            </p>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="assistantId">
-              Assistant / Graph ID<span className="text-rose-500">*</span>
-            </Label>
-            <p className="text-muted-foreground text-sm">
-              This is the ID of the graph (can be the graph name), or assistant to fetch threads from, and invoke when actions are taken.
-            </p>
-            <Input
-              id="assistantId"
-              name="assistantId"
-              defaultValue={assistantId || DEFAULT_ASSISTANT_ID}
-              placeholder="agent"
-              required
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="assistantId">
+                Assistant / Graph ID<span className="text-rose-500">*</span>
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                This is the ID of the graph (can be the graph name), or assistant to fetch threads from, and invoke when actions are taken.
+              </p>
+              <Input
+                id="assistantId"
+                name="assistantId"
+                defaultValue={assistantId || DEFAULT_ASSISTANT_ID}
+                placeholder="agent"
+                required
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="llmModel">
-              LLM Model<span className="text-rose-500">*</span>
-            </Label>
-            <p className="text-muted-foreground text-sm">
-              Name of the language model to use. Must be a valid language model name.
-            </p>
-            <Input
-              id="llmModel"
-              name="llmModel"
-              defaultValue={llmModel || DEFAULT_LLM_MODEL}
-              placeholder="google/gemini-2.5-flash"
-              required
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="llmModel">
+                LLM Model<span className="text-rose-500">*</span>
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                Name of the language model to use. Must be a valid language model name.
+              </p>
+              <Input
+                id="llmModel"
+                name="llmModel"
+                defaultValue={llmModel || DEFAULT_LLM_MODEL}
+                placeholder="google/gemini-2.5-flash"
+                required
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="provider">
-              Provider<span className="text-rose-500">*</span>
-            </Label>
-            <p className="text-muted-foreground text-sm">
-              Provider of the language model. Supported providers: openrouter, hf-mirror
-            </p>
-            <Input
-              id="provider"
-              name="provider"
-              defaultValue={provider || DEFAULT_PROVIDER}
-              placeholder="openrouter"
-              required
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="provider">
+                Provider<span className="text-rose-500">*</span>
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                Provider of the language model. Supported providers: openrouter, hf-mirror
+              </p>
+              <Input
+                id="provider"
+                name="provider"
+                defaultValue={provider || DEFAULT_PROVIDER}
+                placeholder="openrouter"
+                required
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="dbUrl">
-              Database URL
-            </Label>
-            <p className="text-muted-foreground text-sm">
-              Database URL，支持sqlite, mysql, postgresql，excel/csv本地文件，s3, minio等
-            </p>
-            <Input
-              id="dbUrl"
-              name="dbUrl"
-              defaultValue={dbUrl || ""}
-              placeholder="sqlite:///path/to/database.db"
-            />
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">
-              Save Settings
-              <ArrowRight className="size-4 ml-2" />
-            </Button>
-          </DialogFooter>
-        </form>
+            <div className="space-y-2">
+              <Label htmlFor="dbUrl">
+                Database URL
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                Database URL，支持sqlite, mysql, postgresql，excel/csv本地文件，s3, minio等
+              </p>
+              <Input
+                id="dbUrl"
+                name="dbUrl"
+                defaultValue={dbUrl || ""}
+                placeholder="sqlite:///path/to/database.db"
+              />
+            </div>
+          </form>
+        </div>
+        
+        <DialogFooter className="mt-6">
+          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form="settingsForm">
+            Save Settings
+            <ArrowRight className="size-4 ml-2" />
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
