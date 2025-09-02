@@ -83,6 +83,56 @@ is_running() {
     return 1
 }
 
+# 检查端口是否被占用
+check_port() {
+    local port=$1
+    if netstat -tlnp 2>/dev/null | grep -q ":$port "; then
+        return 0  # 端口被占用
+    fi
+    return 1  # 端口可用
+}
+
+# 清理占用端口的进程
+cleanup_port() {
+    local port=$1
+    log_warn "端口 $port 被占用，正在清理..."
+    
+    # 查找占用端口的进程
+    local pids=$(netstat -tlnp 2>/dev/null | grep ":$port " | awk '{print $7}' | cut -d'/' -f1 | grep -v -)
+    
+    if [ -n "$pids" ]; then
+        for pid in $pids; do
+            if [ "$pid" != "-" ] && kill -0 "$pid" 2>/dev/null; then
+                local cmd=$(ps -p "$pid" -o cmd --no-headers 2>/dev/null || echo "unknown")
+                log_info "终止进程 $pid: $cmd"
+                kill "$pid" 2>/dev/null
+                sleep 2
+                
+                # 如果进程仍然存在，强制终止
+                if kill -0 "$pid" 2>/dev/null; then
+                    log_warn "强制终止进程 $pid"
+                    kill -9 "$pid" 2>/dev/null
+                fi
+            fi
+        done
+        
+        # 等待端口释放
+        local count=0
+        while check_port "$port" && [ $count -lt 5 ]; do
+            sleep 1
+            count=$((count + 1))
+        done
+        
+        if check_port "$port"; then
+            log_error "无法释放端口 $port"
+            return 1
+        else
+            log_success "端口 $port 已释放"
+        fi
+    fi
+    return 0
+}
+
 # 启动服务
 start_service() {
     if is_running; then
@@ -108,6 +158,15 @@ start_service() {
     # 设置端口
     local port=${PORT:-$DEFAULT_PORT}
     export PORT=$port
+    
+    # 检查端口是否被占用
+    if check_port "$port"; then
+        log_warn "端口 $port 被占用"
+        if ! cleanup_port "$port"; then
+            log_error "无法清理端口 $port，启动失败"
+            return 1
+        fi
+    fi
     
     log_info "使用端口: $port"
     log_info "日志输出到: $LOG_FILE"

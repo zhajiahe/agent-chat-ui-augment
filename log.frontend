@@ -1,6 +1,17 @@
-[0;34m[INFO][0m 从 .env 加载环境变量...
-[0;34m[INFO][0m 设置环境变量: LANGGRAPH_API_URL=localhost:2024...
-[0;34m[INFO][0m 设置环境变量: LANGSMITH_API_KEY=lsv2_pt_your_api_key...
-[0;34m[INFO][0m 设置环境变量: NEXT_PUBLIC_ASSISTANT_ID=agent...
-[0;34m[INFO][0m 设置环境变量: PORT=3000...
-[0;32m[SUCCESS][0m 环境变量加载完成
+nohup: ignoring input
+
+> agent-chat-ui@0.0.0 start
+> next start
+
+   ▲ Next.js 15.5.2
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.0.164:3000
+
+ ✓ Starting...
+ ✓ Ready in 655ms
+🔒 Secure API proxy initialized successfully
+📡 Target server: [CONFIGURED]
+🔑 API key: [CONFIGURED]
+[0;32m[SUCCESS][0m 服务启动成功! PID: 1109867
+[0;34m[INFO][0m 服务地址: http://localhost:3000
+[0;34m[INFO][0m 查看日志: tail -f log.frontend
