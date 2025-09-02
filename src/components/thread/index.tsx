@@ -21,6 +21,8 @@ import {
   PanelRightClose,
   SquarePen,
   XIcon,
+  Plus,
+  CircleX,
 } from "lucide-react";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -29,14 +31,15 @@ import { toast } from "sonner";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
-
+import { GitHubSVG } from "../icons/github";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
-
+import { useFileUpload } from "@/hooks/use-file-upload";
+import { ContentBlocksPreview } from "./ContentBlocksPreview";
 import {
   useArtifactOpen,
   ArtifactContent,
@@ -44,6 +47,11 @@ import {
   useArtifactContext,
 } from "./artifact";
 import { SettingsDialog } from "@/components/settings";
+
+// Default values to match SettingsDialog
+const DEFAULT_LLM_MODEL = "google/gemini-2.5-flash";
+const DEFAULT_PROVIDER = "openrouter";
+const DEFAULT_DB_URL = "mysql://root:password@172.16.204.231:3307/mysqldb";
 
 function StickyToBottomContent(props: {
   content: ReactNode;
@@ -86,7 +94,29 @@ function ScrollToBottom(props: { className?: string }) {
   );
 }
 
-
+function OpenGitHubRepo() {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <a
+            href="https://github.com/zhajiahe/agent-chat-ui-augment"
+            target="_blank"
+            className="flex items-center justify-center"
+          >
+            <GitHubSVG
+              width="24"
+              height="24"
+            />
+          </a>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          <p>Open GitHub repo</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export function Thread() {
   const [artifactContext, setArtifactContext] = useArtifactContext();
@@ -104,16 +134,26 @@ export function Thread() {
   
   // Configuration parameters from settings
   const [llmModel] = useQueryState("llmModel", {
-    defaultValue: "google/gemini-2.5-flash",
+    defaultValue: DEFAULT_LLM_MODEL,
   });
   const [provider] = useQueryState("provider", {
-    defaultValue: "openrouter",
+    defaultValue: DEFAULT_PROVIDER,
   });
   const [dbUrl] = useQueryState("dbUrl", {
-    defaultValue: "",
+    defaultValue: DEFAULT_DB_URL,
   });
 
   const [input, setInput] = useState("");
+  const {
+    contentBlocks,
+    setContentBlocks,
+    handleFileUpload,
+    dropRef,
+    removeBlock,
+    resetBlocks,
+    dragOver,
+    handlePaste,
+  } = useFileUpload();
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
@@ -175,7 +215,7 @@ export function Thread() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (input.trim().length === 0 || isLoading)
+    if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
       return;
 
     // Check if db_url is configured
@@ -202,6 +242,7 @@ export function Thread() {
       type: "human",
       content: [
         ...(input.trim().length > 0 ? [{ type: "text", text: input }] : []),
+        ...contentBlocks,
       ] as Message["content"],
     };
 
@@ -235,6 +276,7 @@ export function Thread() {
     );
 
     setInput("");
+    setContentBlocks([]);
   };
 
   const handleRegenerate = (
@@ -326,6 +368,7 @@ export function Thread() {
               </div>
               <div className="absolute top-2 right-4 flex items-center gap-2">
                 <SettingsDialog />
+                <OpenGitHubRepo />
               </div>
             </div>
           )}
@@ -364,7 +407,7 @@ export function Thread() {
                     height={32}
                   />
                   <span className="text-xl font-semibold tracking-tight">
-                    AI智能问数
+                    Agent Chat
                   </span>
                 </motion.button>
               </div>
@@ -392,7 +435,7 @@ export function Thread() {
                 !chatStarted && "mt-[25vh] flex flex-col items-stretch",
                 chatStarted && "grid grid-rows-[1fr_auto]",
               )}
-              contentClassName="pt-8 pb-16  max-w-5xl mx-auto flex flex-col gap-4 w-full"
+              contentClassName="pt-8 pb-16  max-w-3xl mx-auto flex flex-col gap-4 w-full"
               content={
                 <>
                   {messages
@@ -400,13 +443,13 @@ export function Thread() {
                     .map((message, index) =>
                       message.type === "human" ? (
                         <HumanMessage
-                          key={`${message.id || message.type}-${index}`}
+                          key={message.id || `${message.type}-${index}`}
                           message={message}
                           isLoading={isLoading}
                         />
                       ) : (
                         <AssistantMessage
-                          key={`${message.id || message.type}-${index}`}
+                          key={message.id || `${message.type}-${index}`}
                           message={message}
                           isLoading={isLoading}
                           handleRegenerate={handleRegenerate}
@@ -434,7 +477,7 @@ export function Thread() {
                     <div className="flex items-center gap-3">
                       <LangGraphLogoSVG className="h-8 flex-shrink-0" />
                       <h1 className="text-2xl font-semibold tracking-tight">
-                        AI智能问数
+                        Agent Chat
                       </h1>
                     </div>
                   )}
@@ -442,15 +485,26 @@ export function Thread() {
                   <ScrollToBottom className="animate-in fade-in-0 zoom-in-95 absolute bottom-full left-1/2 mb-4 -translate-x-1/2" />
 
                   <div
-                    className="bg-muted relative z-10 mx-auto mb-8 w-full max-w-4xl rounded-2xl shadow-xs transition-all border border-solid"
+                    ref={dropRef}
+                    className={cn(
+                      "bg-muted relative z-10 mx-auto mb-8 w-full max-w-3xl rounded-2xl shadow-xs transition-all",
+                      dragOver
+                        ? "border-primary border-2 border-dotted"
+                        : "border border-solid",
+                    )}
                   >
                     <form
                       onSubmit={handleSubmit}
-                      className="mx-auto grid max-w-4xl grid-rows-[1fr_auto] gap-2"
+                      className="mx-auto grid max-w-3xl grid-rows-[1fr_auto] gap-2"
                     >
+                      <ContentBlocksPreview
+                        blocks={contentBlocks}
+                        onRemove={removeBlock}
+                      />
                       <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
+                        onPaste={handlePaste}
                         onKeyDown={(e) => {
                           if (
                             e.key === "Enter" &&
@@ -480,11 +534,27 @@ export function Thread() {
                               htmlFor="render-tool-calls"
                               className="text-sm text-gray-600"
                             >
-                              隐藏工具调用
+                              Hide Tool Calls
                             </Label>
                           </div>
                         </div>
-
+                        <Label
+                          htmlFor="file-input"
+                          className="hidden flex cursor-pointer items-center gap-2"
+                        >
+                          <Plus className="size-5 text-gray-600" />
+                          <span className="text-sm text-gray-600">
+                            Upload PDF or Image
+                          </span>
+                        </Label>
+                        <input
+                          id="file-input"
+                          type="file"
+                          onChange={handleFileUpload}
+                          multiple
+                          accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                          className="hidden"
+                        />
                         {stream.isLoading ? (
                           <Button
                             key="stop"
@@ -500,7 +570,7 @@ export function Thread() {
                             className="ml-auto shadow-md transition-all"
                             disabled={
                               isLoading ||
-                              !input.trim()
+                              (!input.trim() && contentBlocks.length === 0)
                             }
                           >
                             Send

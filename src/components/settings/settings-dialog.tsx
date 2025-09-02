@@ -21,6 +21,7 @@ import { TooltipIconButton } from "@/components/thread/tooltip-icon-button";
 const DEFAULT_ASSISTANT_ID = "agent";
 const DEFAULT_LLM_MODEL = "google/gemini-2.5-flash";
 const DEFAULT_PROVIDER = "openrouter";
+const DEFAULT_DB_URL = "mysql://root:password@172.16.204.231:3307/mysqldb";
 
 interface SettingsDialogProps {
   variant?: "button" | "icon";
@@ -47,7 +48,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
   });
 
   const [dbUrl, setDbUrl] = useQueryState("dbUrl", {
-    defaultValue: "",
+    defaultValue: DEFAULT_DB_URL,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -175,7 +176,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
               <Input
                 id="dbUrl"
                 name="dbUrl"
-                defaultValue={dbUrl || ""}
+                defaultValue={dbUrl || DEFAULT_DB_URL}
                 placeholder="sqlite:///path/to/database.db"
               />
             </div>
