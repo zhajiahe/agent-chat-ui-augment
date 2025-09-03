@@ -487,7 +487,7 @@ export function Thread() {
                   <div
                     ref={dropRef}
                     className={cn(
-                      "bg-muted relative z-10 mx-auto mb-8 w-full max-w-[80%] rounded-2xl shadow-xs transition-all",
+                      "bg-muted relative z-10 mx-auto mb-8 w-full max-w-3xl rounded-2xl shadow-xs transition-all",
                       dragOver
                         ? "border-primary border-2 border-dotted"
                         : "border border-solid",
@@ -495,7 +495,7 @@ export function Thread() {
                   >
                     <form
                       onSubmit={handleSubmit}
-                      className="mx-auto grid max-w-[80%] grid-rows-[1fr_auto] gap-2"
+                      className="mx-auto grid max-w-3xl grid-rows-[1fr_auto] gap-2"
                     >
                       <ContentBlocksPreview
                         blocks={contentBlocks}
