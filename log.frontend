@@ -8,10 +8,10 @@ nohup: ignoring input
    - Network:      http://192.168.0.164:3000
 
  ✓ Starting...
- ✓ Ready in 691ms
+ ✓ Ready in 663ms
 🔒 Secure API proxy initialized successfully
 📡 Target server: [CONFIGURED]
 🔑 API key: [CONFIGURED]
-[0;32m[SUCCESS][0m 服务启动成功! PID: 1317968
+[0;32m[SUCCESS][0m 服务启动成功! PID: 1319913
 [0;34m[INFO][0m 服务地址: http://localhost:3000
 [0;34m[INFO][0m 查看日志: tail -f log.frontend
