@@ -18,10 +18,10 @@ import { toast } from "sonner";
 import { TooltipIconButton } from "@/components/thread/tooltip-icon-button";
 
 // Default values for the form
-const DEFAULT_ASSISTANT_ID = "agent";
+const DEFAULT_ASSISTANT_ID = "sql_supervisor";
 const DEFAULT_LLM_MODEL = "google/gemini-2.5-flash";
 const DEFAULT_PROVIDER = "openrouter";
-const DEFAULT_DB_URL = "mysql://root:password@172.16.204.231:3307/mysqldb";
+const DEFAULT_DB_URL = "/data2/zhanghuaao/ai_database/data_agent_supervisor/db_example/cement.db";
 
 interface SettingsDialogProps {
   variant?: "button" | "icon";

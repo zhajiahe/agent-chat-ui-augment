@@ -1,0 +1,388 @@
+---
+globs: *.ts,*.tsx
+description: LangGraph API integration and streaming patterns
+---
+
+# LangGraph API Integration
+
+## Architecture Overview
+
+This project implements a **private deployment** architecture where all LangGraph API requests are proxied through Next.js API routes for security. The real LangGraph server URL is hidden from clients.
+
+### API Proxy Structure
+- **Client requests**: Always go to `/api/*` endpoints
+- **Server proxy**: [src/app/api/[..._path]/route.ts](mdc:src/app/api/[..._path]/route.ts) forwards to real LangGraph server
+- **Security**: `LANGGRAPH_API_URL` and `LANGSMITH_API_KEY` are server-side only
+
+## Core Integration Patterns
+
+### Stream Provider Setup
+Follow the patterns from [src/providers/Stream.tsx](mdc:src/providers/Stream.tsx):
+
+```typescript
+import { useStream } from "@langchain/langgraph-sdk/react";
+import type { Message } from "@langchain/langgraph-sdk";
+import { 
+  uiMessageReducer,
+  isUIMessage,
+  isRemoveUIMessage,
+  type UIMessage 
+} from "@langchain/langgraph-sdk/react-ui";
+
+// State type definition
+export type StateType = { 
+  messages: Message[]; 
+  ui?: UIMessage[] 
+};
+
+// Typed stream hook
+const useTypedStream = useStream<
+  StateType,
+  { MetaType: { artifact: [Component, Bag] } }
+>();
+```
+
+### Stream Configuration
+```typescript
+const streamValue = useTypedStream({
+  // Always use internal proxy URL
+  apiUrl: typeof window !== 'undefined' 
+    ? `${window.location.origin}/api`
+    : "/api",
+  
+  // API key from localStorage (optional for private deployment)
+  apiKey: apiKey ?? undefined,
+  
+  // Assistant/Graph ID
+  assistantId: finalAssistantId,
+  
+  // Current thread ID
+  threadId: threadId ?? null,
+  
+  // Custom event handling for UI messages
+  onCustomEvent: (event, options) => {
+    if (isUIMessage(event) || isRemoveUIMessage(event)) {
+      options.mutate((prev) => {
+        const ui = uiMessageReducer(prev.ui ?? [], event);
+        return { ...prev, ui };
+      });
+    }
+  },
+  
+  // Thread ID management
+  onThreadId: (id) => {
+    setThreadId(id);
+    // Refetch threads after creation
+    sleep().then(() => getThreads().then(setThreads).catch(console.error));
+  },
+});
+```
+
+## Thread Management
+
+### Thread Provider Pattern
+From [src/providers/Thread.tsx](mdc:src/providers/Thread.tsx):
+
+```typescript
+import { createClient } from "@langchain/langgraph-sdk";
+
+// Client creation for thread operations
+const client = createClient(
+  apiUrl,        // Internal proxy URL
+  apiKey ?? undefined
+);
+
+// Thread search with metadata
+const threads = await client.threads.search({
+  metadata: {
+    // Use assistant_id for LangGraph Cloud, graph_id for self-hosted
+    ...(assistantId.startsWith("assistant:") 
+      ? { assistant_id: assistantId }
+      : { graph_id: assistantId }
+    ),
+  },
+  limit: 100,
+});
+```
+
+### Thread Operations
+```typescript
+// Create new thread
+const newThread = await client.threads.create({
+  metadata: {
+    assistant_id: assistantId,
+    // Additional metadata as needed
+  }
+});
+
+// Get thread by ID
+const thread = await client.threads.get(threadId);
+
+// Update thread
+await client.threads.updateMetadata(threadId, {
+  title: "Updated Thread Title"
+});
+
+// Delete thread
+await client.threads.delete(threadId);
+```
+
+## Message Handling
+
+### Message Types
+Work with LangGraph message types:
+
+```typescript
+import type { 
+  Message,
+  AIMessage, 
+  HumanMessage,
+  ToolMessage 
+} from "@langchain/langgraph-sdk";
+
+// Type-safe message processing
+function processMessage(message: Message) {
+  switch (message._getType()) {
+    case "human":
+      return processHumanMessage(message as HumanMessage);
+    case "ai":
+      return processAIMessage(message as AIMessage);
+    case "tool":
+      return processToolMessage(message as ToolMessage);
+    default:
+      return processGenericMessage(message);
+  }
+}
+```
+
+### Message Content Extraction
+```typescript
+import { getContentString } from "@/components/thread/utils";
+
+// Extract text content from messages
+const textContent = getContentString(message);
+
+// Handle complex content types
+function processComplexContent(content: MessageContentComplex[]) {
+  return content.map(item => {
+    if (typeof item === "string") {
+      return item;
+    } else if (item.type === "text") {
+      return item.text;
+    } else if (item.type === "image_url") {
+      return `[Image: ${item.image_url}]`;
+    }
+    return "[Unsupported content]";
+  }).join("");
+}
+```
+
+## Tool Call Handling
+
+### Tool Call Processing
+From [src/components/thread/messages/tool-calls.tsx](mdc:src/components/thread/messages/tool-calls.tsx):
+
+```typescript
+// Tool call display component
+export function ToolCalls({ calls }: { calls?: AIMessage["tool_calls"] }) {
+  if (!calls?.length) return null;
+  
+  return (
+    <div className="space-y-2">
+      {calls.map((call) => (
+        <div key={call.id} className="border rounded-md p-3">
+          <div className="font-medium text-sm">{call.name}</div>
+          <pre className="text-xs text-muted-foreground mt-1">
+            {JSON.stringify(call.args, null, 2)}
+          </pre>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### Tool Result Handling
+```typescript
+// Tool result display
+export function ToolResult({ message }: { message: ToolMessage }) {
+  const result = message.content;
+  
+  // Handle different result types
+  if (typeof result === "string") {
+    return <div className="tool-result">{result}</div>;
+  }
+  
+  // Handle complex tool results
+  return (
+    <div className="tool-result">
+      <pre>{JSON.stringify(result, null, 2)}</pre>
+    </div>
+  );
+}
+```
+
+## Streaming & Real-time Updates
+
+### Streaming Message Display
+```typescript
+export function StreamingMessage({ message }: { message: AIMessage }) {
+  const { isStreaming } = useStreamContext();
+  
+  return (
+    <div className="message">
+      <MarkdownText content={getContentString(message)} />
+      
+      {/* Show streaming indicator */}
+      {isStreaming && (
+        <div className="flex items-center gap-1 mt-2">
+          <div className="animate-pulse h-2 w-2 bg-primary rounded-full" />
+          <span className="text-xs text-muted-foreground">Thinking...</span>
+        </div>
+      )}
+      
+      {/* Show tool calls if present */}
+      {message.tool_calls && (
+        <ToolCalls calls={message.tool_calls} />
+      )}
+    </div>
+  );
+}
+```
+
+### Event Handling
+```typescript
+// Handle custom streaming events
+const handleCustomEvent = useCallback((event: any, options: any) => {
+  // UI message handling
+  if (isUIMessage(event) || isRemoveUIMessage(event)) {
+    options.mutate((prev: StateType) => {
+      const ui = uiMessageReducer(prev.ui ?? [], event);
+      return { ...prev, ui };
+    });
+  }
+  
+  // Custom component events
+  if (event.type === "custom_component") {
+    // Handle custom component loading
+    handleCustomComponent(event);
+  }
+}, []);
+```
+
+## Error Handling & Resilience
+
+### Connection Status Checking
+```typescript
+async function checkGraphStatus(
+  apiUrl: string,
+  apiKey: string | null,
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${apiUrl}/assistants`, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+      },
+    });
+    return response.ok;
+  } catch (e) {
+    console.error("Graph status check failed:", e);
+    return false;
+  }
+}
+```
+
+### Error Boundaries
+```typescript
+// Stream error handling
+useEffect(() => {
+  checkGraphStatus(apiUrl, apiKey).then((ok) => {
+    if (!ok) {
+      toast.error("Failed to connect to LangGraph server", {
+        description: () => (
+          <p>
+            Please ensure your graph is running at <code>{apiUrl}</code> and
+            your API key is correctly set (if connecting to a deployed graph).
+          </p>
+        ),
+        duration: 10000,
+        richColors: true,
+        closeButton: true,
+      });
+    }
+  });
+}, [apiKey, apiUrl]);
+```
+
+## Environment Configuration
+
+### Server-Side Variables
+```bash
+# Server-side only (never exposed to client)
+LANGGRAPH_API_URL="https://your-langgraph-server.com"
+LANGSMITH_API_KEY="lsv2_..."
+
+# Public configuration
+NEXT_PUBLIC_ASSISTANT_ID="agent"
+```
+
+### API Proxy Configuration
+In [src/app/api/[..._path]/route.ts](mdc:src/app/api/[..._path]/route.ts):
+
+```typescript
+import { initApiPassthrough } from "langgraph-nextjs-api-passthrough";
+
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS, runtime } =
+  initApiPassthrough({
+    apiUrl: process.env.LANGGRAPH_API_URL!,
+    apiKey: process.env.LANGSMITH_API_KEY,
+    runtime: "edge",
+    // Add custom headers if needed
+    defaultHeaders: {
+      "X-Custom-Header": "value",
+    },
+  });
+```
+
+## Best Practices
+
+### 1. Always Use Proxy URLs
+```typescript
+// Good - always use internal proxy
+const apiUrl = typeof window !== 'undefined' 
+  ? `${window.location.origin}/api`
+  : "/api";
+
+// Never expose real LangGraph URL to client
+// Bad - direct LangGraph URL
+const apiUrl = "https://my-langgraph-server.com";
+```
+
+### 2. Handle Async Operations Safely
+```typescript
+// Good - with error handling
+const fetchThreads = useCallback(async () => {
+  try {
+    const threads = await client.threads.search({ metadata });
+    setThreads(threads);
+  } catch (error) {
+    console.error("Failed to fetch threads:", error);
+    setThreads([]);
+  }
+}, []);
+```
+
+### 3. Type-Safe Message Processing
+```typescript
+// Good - type-safe processing
+function processMessage(message: Message): ProcessedMessage {
+  return {
+    id: message.id,
+    content: getContentString(message),
+    type: message._getType(),
+    timestamp: new Date(message.created_at || Date.now()),
+  };
+}
+```
