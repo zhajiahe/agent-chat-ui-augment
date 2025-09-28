@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import "../globals.css";
 import { Inter } from "next/font/google";
 import React from "react";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { AuthProvider } from "@/providers/Auth";
-import Header from "./Header";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,7 +16,7 @@ export const metadata: Metadata = {
   description: "AI智能问数，让数据分析更简单",
 };
 
-export default function RootLayout({
+export default function AuthLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -28,9 +27,8 @@ export default function RootLayout({
         <AuthProvider>
           <React.Suspense fallback={<div>Loading (layout)...</div>}>
             <NuqsAdapter>
-              <div className="min-h-screen flex flex-col">
-                <Header />
-                <main className="flex-1 min-h-0">{children}</main>
+              <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
+                {children}
               </div>
             </NuqsAdapter>
           </React.Suspense>

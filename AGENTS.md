@@ -26,6 +26,9 @@ Server-side environment (kept private):
 Client-facing (non-secret):
 - `NEXT_PUBLIC_ASSISTANT_ID`: Default assistant/graph id; can be overridden via query param `?assistantId=`.
 
+Server-side only (private):
+- `BACKEND_API_URL`: Backend API base (for login/register/data sources/memories). All client calls go through the internal proxy at `/backend` to keep this private.
+
 Local example can be found in `env.example`.
 
 The app always communicates with the internal proxy at `/api`. Do not surface `NEXT_PUBLIC_API_URL` in private mode.
@@ -47,12 +50,15 @@ Providers wire the app to the LangGraph SDK and thread management:
 UI and behavior:
 - `src/components/thread/index.tsx`
   - Collects user input and optional content blocks.
-  - Builds a submission payload `{ messages, context }` and a `config` with `configurable.llm_model`, `provider`, and `db_url` from query state.
+  - Builds a submission payload `{ messages, context }`. Model/provider/database selection is handled server-side;
   - Calls `stream.submit(...)` to invoke the graph via the proxy.
   - Displays thread messages and artifacts (see `artifact.tsx`).
 
 - `src/components/settings/settings-dialog.tsx`
-  - Lets users adjust `assistantId`, `llmModel`, `provider`, `dbUrl` via query state.
+  - Lets users adjust `db_name` via query state.
+  - If logged in (AuthProvider), can manage backend resources:
+    - View/create/update/delete data sources.
+    - View/create/update/delete memories for the selected data source.
   - Shows that API routing is through the internal proxy and that the real URL is server-configured.
 
 Server proxy:
@@ -62,7 +68,7 @@ Server proxy:
 
 ### Data Flow
 1. User types a message in `Thread` and submits.
-2. `Thread` composes `messages` and `config` (`llm_model`, `provider`, `db_url`).
+2. `Thread` composes `messages` and optional `context` only. The server decides model/provider/database configuration.
 3. `useStream` sends the request to `/api` with `assistantId` and optional `threadId`.
 4. The API proxy forwards the request to `LANGGRAPH_API_URL`, injecting `LANGSMITH_API_KEY` if set.
 5. Streamed updates return to the client, rendered via `react-ui` reducers; artifacts can open in a side panel.
@@ -75,11 +81,21 @@ Server proxy:
 - `src/components/thread/messages/*` — message renderers
 - `src/components/thread/artifact.tsx` — artifact panel
 - `src/components/settings/settings-dialog.tsx` — adjustable settings
+- `src/lib/backend-client.ts` — backend API client (auth/data sources/memories)
+- `src/providers/Auth.tsx` — auth state (login/register/logout)
+- `src/app/auth/login/page.tsx`, `src/app/auth/register/page.tsx` — auth pages
+- `src/app/Header.tsx` with auth-aware header
 - `src/app/api/[..._path]/route.ts` — proxy to LangGraph server
+- `src/app/backend/[...path]/route.ts` — proxy to backend API (`BACKEND_API_URL`)
+
+### Authentication & Access Control
+- The main chat page (`src/app/page.tsx`) is guarded: unauthenticated users are redirected to `/auth/login`.
+- `Header` shows a single settings button only when logged in. Login/Register buttons are removed.
+- Logout is available on the main chat view, bottom-left corner, when logged in.
 
 ### How To Modify or Extend
 - Change assistant/graph defaults: set `NEXT_PUBLIC_ASSISTANT_ID` or pass `?assistantId=`.
-- Adjust model/provider/db defaults: see `settings-dialog.tsx` defaults and the corresponding query params `llmModel`, `provider`, `dbUrl`.
+- Model/provider/database configuration is server-side only; adjust it on your LangGraph server or proxy.
 - Add headers/tokens server-side: extend `initApiPassthrough` in `route.ts` with `defaultHeaders` or custom logic.
 - Add client headers: pass `defaultHeaders` via `useStream` setup in `Stream.tsx` if your server requires them.
 - Customize message rendering: edit `src/components/thread/messages/ai.tsx` and `human.tsx`.
@@ -97,7 +113,6 @@ The UI expects a LangGraph endpoint compatible with `@langchain/langgraph-sdk` t
 3. Run: `pnpm dev` → open http://localhost:3000
 
 ### Process Management (PM2 + Makefile)
-- Scripts `start.sh` and `stop.sh` have been removed in favor of PM2.
 - PM2 ecosystem file: `ecosystem.config.cjs` (app name: `agent-chat-ui`).
 - Makefile targets:
   - `make install` — install dependencies
@@ -125,5 +140,7 @@ make logs
 - Connection failures: verify `/api/info` reachable, `LANGGRAPH_API_URL` is correct, and API key requirements on your LangGraph deployment.
 - No threads showing: ensure `assistantId` matches your graph or assistant; confirm SDK connectivity in `ThreadProvider.getThreads`.
 - Message not rendering: ensure returned events and `messages` conform to SDK expectations; check `ai.tsx` and reducers in `Stream.tsx`.
+- Login API format errors: The backend API expects `application/x-www-form-urlencoded` format for login requests, not JSON. The `backend-client.ts` handles this automatically with `isFormUrlEncoded: true` flag.
+- Backend API proxy: All backend API calls go through `/backend` proxy to `BACKEND_API_URL`. Ensure the backend server is running and accessible.
 
 

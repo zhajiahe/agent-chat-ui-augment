@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: "agent-chat-ui",
-      script: "node_modules/.bin/next",
+      script: "npm",
       args: "start",
       env: {
         NODE_ENV: "production",

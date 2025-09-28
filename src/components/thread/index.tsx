@@ -21,8 +21,6 @@ import {
   PanelRightClose,
   SquarePen,
   XIcon,
-  Plus,
-  CircleX,
 } from "lucide-react";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -31,27 +29,22 @@ import { toast } from "sonner";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
-import { GitHubSVG } from "../icons/github";
+import { useAuth } from "@/providers/Auth";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
-import { useFileUpload } from "@/hooks/use-file-upload";
-import { ContentBlocksPreview } from "./ContentBlocksPreview";
+ 
 import {
   useArtifactOpen,
   ArtifactContent,
   ArtifactTitle,
   useArtifactContext,
 } from "./artifact";
-import { SettingsDialog } from "@/components/settings";
-
-// Default values to match SettingsDialog
-const DEFAULT_LLM_MODEL = "google/gemini-2.5-flash";
-const DEFAULT_PROVIDER = "openrouter";
-const DEFAULT_DB_URL = "/data2/zhanghuaao/ai_database/data_agent_supervisor/db_example/cement.db";
+import { backendApi, DataSource } from "@/lib/backend-client";
+ 
 
 function StickyToBottomContent(props: {
   content: ReactNode;
@@ -94,31 +87,8 @@ function ScrollToBottom(props: { className?: string }) {
   );
 }
 
-function OpenGitHubRepo() {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <a
-            href="https://github.com/zhajiahe/agent-chat-ui-augment"
-            target="_blank"
-            className="flex items-center justify-center"
-          >
-            <GitHubSVG
-              width="24"
-              height="24"
-            />
-          </a>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          <p>Open GitHub repo</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
 export function Thread() {
+  const { user, logout, token } = useAuth();
   const [artifactContext, setArtifactContext] = useArtifactContext();
   const [artifactOpen, closeArtifact] = useArtifactOpen();
 
@@ -131,29 +101,15 @@ export function Thread() {
     "hideToolCalls",
     parseAsBoolean.withDefault(false),
   );
-  
-  // Configuration parameters from settings
-  const [llmModel] = useQueryState("llmModel", {
-    defaultValue: DEFAULT_LLM_MODEL,
-  });
-  const [provider] = useQueryState("provider", {
-    defaultValue: DEFAULT_PROVIDER,
-  });
-  const [dbUrl] = useQueryState("dbUrl", {
-    defaultValue: DEFAULT_DB_URL,
-  });
+
+
+  // 用户和数据源信息状态
+  const [userName, setUserName] = useState<string>("");
+  const [dataSourceName, setDataSourceName] = useState<string>("");
+  const [currentDataSource, setCurrentDataSource] = useState<DataSource | null>(null);
 
   const [input, setInput] = useState("");
-  const {
-    contentBlocks,
-    setContentBlocks,
-    handleFileUpload,
-    dropRef,
-    removeBlock,
-    resetBlocks,
-    dragOver,
-    handlePaste,
-  } = useFileUpload();
+  
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
@@ -171,6 +127,41 @@ export function Thread() {
     setArtifactContext({});
   };
 
+  // 获取用户和数据源信息
+  useEffect(() => {
+    const fetchUserAndDataSource = async () => {
+      if (!user || !token) return;
+
+      try {
+        // 获取用户信息
+        const userInfo = await backendApi.getCurrentUser();
+        const username = String(userInfo.username || '');
+        setUserName(username);
+        console.log("User info loaded:", username);
+
+        // 获取数据源列表
+        const sources = await backendApi.listSources();
+        if (sources && sources.length > 0) {
+          // 默认选择第一个数据源
+          const firstSource = sources[0];
+          setCurrentDataSource(firstSource);
+          const dsName = String(firstSource.name || '');
+          setDataSourceName(dsName);
+          console.log("Data source loaded:", dsName);
+        } else {
+          console.log("No data sources found");
+        }
+      } catch (error) {
+        console.error("Failed to fetch user or data source info:", error);
+        // 设置默认值
+        setUserName(String(user?.username || ''));
+        setDataSourceName('');
+      }
+    };
+
+    fetchUserAndDataSource();
+  }, [user, token]);
+
   useEffect(() => {
     if (!stream.error) {
       lastError.current = undefined;
@@ -185,14 +176,14 @@ export function Thread() {
 
       // Message is defined, and it has not been logged yet. Save it, and send the error
       lastError.current = message;
+      const firstLine = String(message).split("\n")[0] ?? "Unknown error";
+      const preview =
+        firstLine.length > 220 ? firstLine.slice(0, 220) + "..." : firstLine;
       toast.error("An error occurred. Please try again.", {
-        description: (
-          <p>
-            <strong>Error:</strong> <code>{message}</code>
-          </p>
-        ),
+        description: <code>{preview}</code>,
         richColors: true,
         closeButton: true,
+        duration: 6000,
       });
     } catch {
       // no-op
@@ -215,57 +206,53 @@ export function Thread() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
+    if (input.trim().length === 0 || isLoading)
       return;
-
-    // Check if db_url is configured
-    if (!dbUrl || dbUrl.trim().length === 0) {
-      toast.error("Database URL not configured", {
-        description: (
-          <p>
-            Please configure the Database URL in settings before sending messages.
-            <br />
-            <strong>Supported:</strong> sqlite, mysql, postgresql, excel/csv, s3, minio
-          </p>
-        ),
-        richColors: true,
-        closeButton: true,
-        duration: 5000,
-      });
-      return;
-    }
 
     setFirstTokenReceived(false);
 
     const newHumanMessage: Message = {
       id: uuidv4(),
       type: "human",
-      content: [
-        ...(input.trim().length > 0 ? [{ type: "text", text: input }] : []),
-        ...contentBlocks,
-      ] as Message["content"],
+      content: input,
     };
 
-    const toolMessages = ensureToolCallsHaveResponses(stream.messages);
+    const toolMessages = ensureToolCallsHaveResponses(stream.messages as any);
 
     const context =
-      Object.keys(artifactContext).length > 0 ? artifactContext : undefined;
+      Object.keys(artifactContext).length > 0 ? artifactContext : {};
 
-    const config = {
-      configurable: {
-        llm_model: llmModel,
-        provider: provider,
-        db_url: dbUrl
+    // 确保用户信息和数据源名称是字符串类型，避免序列化错误
+    context.user_name = String(userName || '')
+    context.db_name = String(dataSourceName || '')
+
+    // 确保context中的所有值都是可序列化的基本类型
+    const sanitizedContext: Record<string, any> = {}
+    Object.entries(context).forEach(([key, value]) => {
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        sanitizedContext[key] = value
+      } else if (value === null || value === undefined) {
+        sanitizedContext[key] = ''
+      } else {
+        // 对于复杂对象，尝试转换为字符串
+        try {
+          sanitizedContext[key] = String(value)
+        } catch (error) {
+          console.warn(`Failed to stringify context key ${key}:`, value, error)
+          sanitizedContext[key] = ''
+        }
       }
-    }
+    })
+
+    console.log("Context before sanitization:", context)
+    console.log("Sanitized context:", sanitizedContext)
     stream.submit(
-      { messages: [...toolMessages, newHumanMessage], context },
+      { messages: [...toolMessages, newHumanMessage], context: sanitizedContext},
       {
         streamMode: ["values"],
-        config,
+        context: sanitizedContext,
         optimisticValues: (prev) => ({
           ...prev,
-          context,
           messages: [
             ...(prev.messages ?? []),
             ...toolMessages,
@@ -276,7 +263,6 @@ export function Thread() {
     );
 
     setInput("");
-    setContentBlocks([]);
   };
 
   const handleRegenerate = (
@@ -367,7 +353,6 @@ export function Thread() {
                 )}
               </div>
               <div className="absolute top-2 right-4 flex items-center gap-2">
-                <SettingsDialog />
                 {/* <OpenGitHubRepo /> */}
               </div>
             </div>
@@ -413,6 +398,12 @@ export function Thread() {
               </div>
 
               <div className="flex items-center gap-4">
+                {/* 显示用户信息和数据源信息 */}
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>用户: {userName || "未登录"}</span>
+                  <span>|</span>
+                  <span>数据源: {dataSourceName || "未选择"}</span>
+                </div>
                 <TooltipIconButton
                   size="lg"
                   className="p-4"
@@ -440,28 +431,30 @@ export function Thread() {
                 <>
                   {messages
                     .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
-                    .map((message, index) =>
-                      message.type === "human" ? (
+                    .map((message, index) => {
+                      // 类型断言以避免类型错误
+                      const msg = message as any;
+                      return msg.type === "human" ? (
                         <HumanMessage
-                          key={message.id || `${message.type}-${index}`}
-                          message={message}
+                          key={msg.id || `${msg.type}-${index}`}
+                          message={msg}
                           isLoading={isLoading}
                         />
                       ) : (
                         <AssistantMessage
-                          key={message.id || `${message.type}-${index}`}
-                          message={message}
+                          key={msg.id || `${msg.type}-${index}`}
+                          message={msg}
                           isLoading={isLoading}
                           handleRegenerate={handleRegenerate}
                         />
-                      ),
-                    )}
+                      );
+                    })}
                   {/* Special rendering case where there are no AI/tool messages, but there is an interrupt.
                     We need to render it outside of the messages list, since there are no messages to render */}
                   {hasNoAIOrToolMessages && !!stream.interrupt && (
                     <AssistantMessage
                       key="interrupt-msg"
-                      message={undefined}
+                      message={undefined as any}
                       isLoading={isLoading}
                       handleRegenerate={handleRegenerate}
                     />
@@ -484,27 +477,18 @@ export function Thread() {
 
                   <ScrollToBottom className="animate-in fade-in-0 zoom-in-95 absolute bottom-full left-1/2 mb-4 -translate-x-1/2" />
 
-                  <div
-                    ref={dropRef}
+              <div
                     className={cn(
-                      "bg-muted relative z-10 mx-auto mb-8 w-full max-w-3xl rounded-2xl shadow-xs transition-all",
-                      dragOver
-                        ? "border-primary border-2 border-dotted"
-                        : "border border-solid",
+                      "bg-muted relative z-10 mx-auto mb-8 w-full max-w-3xl rounded-2xl shadow-xs transition-all border border-solid",
                     )}
                   >
                     <form
                       onSubmit={handleSubmit}
                       className="mx-auto grid max-w-3xl grid-rows-[1fr_auto] gap-2"
                     >
-                      <ContentBlocksPreview
-                        blocks={contentBlocks}
-                        onRemove={removeBlock}
-                      />
                       <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onPaste={handlePaste}
                         onKeyDown={(e) => {
                           if (
                             e.key === "Enter" &&
@@ -538,23 +522,6 @@ export function Thread() {
                             </Label>
                           </div>
                         </div>
-                        <Label
-                          htmlFor="file-input"
-                          className="hidden flex cursor-pointer items-center gap-2"
-                        >
-                          <Plus className="size-5 text-gray-600" />
-                          <span className="text-sm text-gray-600">
-                            Upload PDF or Image
-                          </span>
-                        </Label>
-                        <input
-                          id="file-input"
-                          type="file"
-                          onChange={handleFileUpload}
-                          multiple
-                          accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
-                          className="hidden"
-                        />
                         {stream.isLoading ? (
                           <Button
                             key="stop"
@@ -568,10 +535,7 @@ export function Thread() {
                           <Button
                             type="submit"
                             className="ml-auto shadow-md transition-all"
-                            disabled={
-                              isLoading ||
-                              (!input.trim() && contentBlocks.length === 0)
-                            }
+                            disabled={isLoading || !input.trim()}
                           >
                             Send
                           </Button>
@@ -579,6 +543,11 @@ export function Thread() {
                       </div>
                     </form>
                   </div>
+                  {user ? (
+                    <div className="fixed left-4 bottom-4">
+                      <button onClick={logout} className="text-sm text-gray-600 underline">退出登录</button>
+                    </div>
+                  ) : null}
                 </div>
               }
             />
