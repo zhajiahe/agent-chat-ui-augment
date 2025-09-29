@@ -5,7 +5,7 @@ import { StreamProvider } from "@/providers/Stream";
 import { ThreadProvider } from "@/providers/Thread";
 import { ArtifactProvider } from "@/components/thread/artifact";
 import { Toaster } from "@/components/ui/sonner";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/providers/Auth";
 import { useRouter } from "next/navigation";
 import { backendApi, DataSource } from "@/lib/backend-client";
@@ -20,7 +20,7 @@ export default function DemoPage(): React.ReactNode {
     const [showSettings, setShowSettings] = useState(false);
 
     // 检查数据源
-    const checkDataSources = async () => {
+    const checkDataSources = useCallback(async () => {
       if (!token) {
         setLoading(false);
         return;
@@ -40,7 +40,7 @@ export default function DemoPage(): React.ReactNode {
       } finally {
         setLoading(false);
       }
-    };
+    }, [token]);
 
     useEffect(() => {
       if (!initialized) {
@@ -52,7 +52,7 @@ export default function DemoPage(): React.ReactNode {
       } else {
         setLoading(false);
       }
-    }, [initialized, user, token]);
+    }, [initialized, user, token, checkDataSources]);
 
     // 如果认证尚未初始化，显示加载状态
     if (!initialized) {

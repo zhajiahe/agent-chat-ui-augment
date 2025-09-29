@@ -3,9 +3,7 @@ import { ThreadIdCopyable } from "./thread-id";
 import { InboxItemInput } from "./inbox-item-input";
 import useInterruptedActions from "../hooks/use-interrupted-actions";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { useQueryState } from "nuqs";
-import { constructOpenInStudioURL } from "../utils";
 import { HumanInterrupt } from "@langchain/langgraph/prebuilt";
 
 interface ThreadActionsViewProps {

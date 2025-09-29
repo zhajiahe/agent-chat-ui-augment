@@ -139,6 +139,13 @@ make logs
 - All client requests go through `/api` (edge runtime proxy).
 - Do not expose direct LangGraph endpoints to the browser in private deployment.
 
+### Security Features
+- **Database Security**: Database URL construction moved to server-side to prevent credential exposure
+- **CORS Protection**: Environment-based CORS configuration with security headers (HSTS, CSP, etc.)
+- **Rate Limiting**: API rate limiting with different limits for auth, database, and general endpoints
+- **Error Handling**: Standardized error handling with detailed logging and user-friendly messages
+- **Input Validation**: Comprehensive input validation and sanitization
+
 ### Troubleshooting
 - Connection failures: verify `/api/info` reachable, `LANGGRAPH_API_URL` is correct, and API key requirements on your LangGraph deployment.
 - No threads showing: ensure `assistantId` matches your graph or assistant; confirm SDK connectivity in `ThreadProvider.getThreads`.

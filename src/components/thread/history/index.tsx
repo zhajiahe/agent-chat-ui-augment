@@ -92,7 +92,7 @@ export default function ThreadHistory() {
       .then(setThreads)
       .catch(console.error)
       .finally(() => setThreadsLoading(false));
-  }, [getThreads]); // Add getThreads to dependencies so it refetches when assistantId changes
+  }, [getThreads, setThreads, setThreadsLoading]); // Add getThreads to dependencies so it refetches when assistantId changes
 
   return (
     <>

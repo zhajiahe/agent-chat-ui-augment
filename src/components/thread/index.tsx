@@ -31,13 +31,6 @@ import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { useAuth } from "@/providers/Auth";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
- 
-import {
   useArtifactOpen,
   ArtifactContent,
   ArtifactTitle,

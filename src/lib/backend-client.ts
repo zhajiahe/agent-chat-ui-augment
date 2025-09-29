@@ -149,51 +149,40 @@ export const backendApi = {
   deleteMemory: (id: number) => request<void>(`/api/memories/${id}`, { method: "DELETE", auth: true }),
 };
 
-export function buildDbUrlFromSource(ds: DataSource): string | null {
-  const d = ds.dialect;
-  const c = (ds.connection_details || {}) as Record<string, any>;
+export interface DatabaseConnectionRequest {
+  dialect: DataSource["dialect"];
+  connection_details: Record<string, unknown>;
+}
+
+export interface DatabaseConnectionResponse {
+  database_url: string | null;
+  error?: string;
+}
+
+// 通过服务端API构建数据库URL（安全）
+export async function buildDbUrlFromSource(ds: DataSource): Promise<string | null> {
   try {
-    if (d === "sqlite") {
-      const p = c.database as string;
-      return p ? `sqlite:///${p}` : null;
+    const response = await fetch('/api/database-url', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getAuthToken()}`,
+      },
+      body: JSON.stringify({
+        dialect: ds.dialect,
+        connection_details: ds.connection_details || {},
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
     }
-    if (d === "postgresql") {
-      const user = encodeURIComponent(c.user || "");
-      const pass = encodeURIComponent(c.password || "");
-      const host = c.host || "localhost";
-      const port = c.port || 5432;
-      const db = c.database || "postgres";
-      const schema = c.schema ? `?schema=${encodeURIComponent(c.schema)}` : "";
-      return `postgresql://${user}:${pass}@${host}:${port}/${db}${schema}`;
-    }
-    if (d === "mysql") {
-      const user = encodeURIComponent(c.user || "");
-      const pass = encodeURIComponent(c.password || "");
-      const host = c.host || "localhost";
-      const port = c.port || 3306;
-      const db = c.database || "mysql";
-      return `mysql://${user}:${pass}@${host}:${port}/${db}`;
-    }
-    if (d === "oracle") {
-      const user = encodeURIComponent(c.user || "");
-      const pass = encodeURIComponent(c.password || "");
-      const host = c.host || "localhost";
-      const port = c.port || 1521;
-      const db = c.database || "xe";
-      const schema = c.schema ? `?schema=${encodeURIComponent(c.schema)}` : "";
-      return `oracle://${user}:${pass}@${host}:${port}/${db}${schema}`;
-    }
-    if (d === "csv") {
-      const path = c.file_path as string;
-      return path ? `csv://${path}` : null;
-    }
-    if (d === "excel") {
-      const path = c.file_path as string;
-      const sheet = c.sheet_name ? `?sheet=${encodeURIComponent(c.sheet_name)}` : "";
-      return path ? `excel://${path}${sheet}` : null;
-    }
-    return null;
-  } catch {
+
+    const data: DatabaseConnectionResponse = await response.json();
+    return data.database_url;
+  } catch (error) {
+    console.error('构建数据库URL失败:', error);
     return null;
   }
 }
