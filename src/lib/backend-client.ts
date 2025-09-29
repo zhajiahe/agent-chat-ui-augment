@@ -123,7 +123,11 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: u
 
 export const backendApi = {
   // Auth
-  login: (payload: LoginRequest) => request<LoginResponse>(`/api/auth/login`, { method: "POST", body: payload, isFormUrlEncoded: true }),
+  login: (payload: LoginRequest) => request<LoginResponse>(`/api/auth/login`, {
+    method: "POST",
+    body: { ...payload, grant_type: "password" },
+    isFormUrlEncoded: true
+  }),
   register: (payload: RegisterRequest) => request<{ message: string }>(`/api/auth/register`, { method: "POST", body: payload }),
   getCurrentUser: () => request<UserResponse>(`/api/auth/me`, { auth: true }),
 

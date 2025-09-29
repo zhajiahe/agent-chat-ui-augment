@@ -84,14 +84,15 @@ Server proxy:
 - `src/lib/backend-client.ts` — backend API client (auth/data sources/memories)
 - `src/providers/Auth.tsx` — auth state (login/register/logout)
 - `src/app/auth/login/page.tsx`, `src/app/auth/register/page.tsx` — auth pages
-- `src/app/Header.tsx` with auth-aware header
+- `src/app/Header.tsx` — removed from layout; header shows title only if used
+- `src/components/BottomLeftControls.tsx` — settings + user menu fixed at bottom-left
 - `src/app/api/[..._path]/route.ts` — proxy to LangGraph server
 - `src/app/backend/[...path]/route.ts` — proxy to backend API (`BACKEND_API_URL`)
 
 ### Authentication & Access Control
-- The main chat page (`src/app/page.tsx`) is guarded: unauthenticated users are redirected to `/auth/login`.
-- `Header` shows a single settings button only when logged in. Login/Register buttons are removed.
-- Logout is available on the main chat view, bottom-left corner, when logged in.
+- The main chat page (`src/app/page.tsx`) is guarded: unauthenticated users are redirected to `/auth`.
+- Settings and username are shown at the bottom-left via `BottomLeftControls` when logged in; the dropdown includes logout.
+- If the user is already logged in, `/auth` and `/auth/login` auto-redirect to `/`.
 
 ### How To Modify or Extend
 - Change assistant/graph defaults: set `NEXT_PUBLIC_ASSISTANT_ID` or pass `?assistantId=`.

@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/providers/Auth";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 
 type AuthMode = "login" | "register";
 
@@ -77,6 +76,14 @@ export default function AuthPage() {
       setMode(newMode);
     }
   };
+
+  // If already logged in, redirect to home
+  const { user, initialized } = useAuth();
+  useEffect(() => {
+    if (initialized && user) {
+      router.replace("/");
+    }
+  }, [initialized, user, router]);
 
   return (
     <div className="w-full max-w-md">
@@ -233,8 +240,6 @@ export default function AuthPage() {
             )}
           </CardContent>
         </Card>
-
-      </div>
-    </div>
+     </div>
   );
 }

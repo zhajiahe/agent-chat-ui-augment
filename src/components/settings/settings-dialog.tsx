@@ -61,8 +61,8 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
     setOpen(v);
     if (v && token) {
       await refreshSources();
-      // 如果没有数据源且不是在新增数据源，强制显示新增表单
-      if (sources && sources.length === 0 && !showAddSourceForm) {
+      // 如果没有数据源，强制显示新增表单
+      if (!sources || sources.length === 0) {
         setShowAddSourceForm(true);
       }
       // 如果有数据源且没有选择，默认选择第一个
@@ -173,7 +173,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
             <Label>数据源管理</Label>
             {!token ? (
               <p className="text-sm text-muted-foreground mt-2">请先登录以管理数据源</p>
-            ) : sources && sources.length === 0 ? (
+            ) : !sources || sources.length === 0 ? (
               <div className="mt-3 space-y-3">
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-sm text-amber-800">

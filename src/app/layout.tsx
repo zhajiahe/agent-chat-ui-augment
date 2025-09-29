@@ -4,7 +4,7 @@ import { Inter } from "next/font/google";
 import React from "react";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { AuthProvider } from "@/providers/Auth";
-import Header from "./Header";
+import { BottomLeftControls } from "@/components/BottomLeftControls";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,8 +29,8 @@ export default function RootLayout({
           <React.Suspense fallback={<div>Loading (layout)...</div>}>
             <NuqsAdapter>
               <div className="min-h-screen flex flex-col">
-                <Header />
                 <main className="flex-1 min-h-0">{children}</main>
+                <BottomLeftControls />
               </div>
             </NuqsAdapter>
           </React.Suspense>

@@ -13,7 +13,7 @@ import { SettingsDialog } from "@/components/settings";
 
 export default function DemoPage(): React.ReactNode {
   const Guard: React.FC = () => {
-    const { user, token } = useAuth();
+    const { user, token, initialized } = useAuth();
     const router = useRouter();
     const [sources, setSources] = useState<DataSource[] | null>(null);
     const [loading, setLoading] = useState(true);
@@ -43,15 +43,31 @@ export default function DemoPage(): React.ReactNode {
     };
 
     useEffect(() => {
+      if (!initialized) {
+        setLoading(false);
+        return;
+      }
       if (user) {
         checkDataSources();
       } else {
         setLoading(false);
       }
-    }, [user, token]);
+    }, [initialized, user, token]);
+
+    // 如果认证尚未初始化，显示加载状态
+    if (!initialized) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">正在初始化...</p>
+          </div>
+        </div>
+      );
+    }
 
     // 如果用户未登录，重定向到登录页面
-    if (!user) {
+    if (initialized && !user) {
       router.replace("/auth");
       return null;
     }

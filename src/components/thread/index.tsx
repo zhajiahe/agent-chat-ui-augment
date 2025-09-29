@@ -217,7 +217,7 @@ export function Thread() {
       content: input,
     };
 
-    const toolMessages = ensureToolCallsHaveResponses(stream.messages as any);
+    const toolMessages = ensureToolCallsHaveResponses(stream.messages);
 
     const context =
       Object.keys(artifactContext).length > 0 ? artifactContext : {};
@@ -225,32 +225,11 @@ export function Thread() {
     // 确保用户信息和数据源名称是字符串类型，避免序列化错误
     context.user_name = String(userName || '')
     context.db_name = String(dataSourceName || '')
-
-    // 确保context中的所有值都是可序列化的基本类型
-    const sanitizedContext: Record<string, any> = {}
-    Object.entries(context).forEach(([key, value]) => {
-      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        sanitizedContext[key] = value
-      } else if (value === null || value === undefined) {
-        sanitizedContext[key] = ''
-      } else {
-        // 对于复杂对象，尝试转换为字符串
-        try {
-          sanitizedContext[key] = String(value)
-        } catch (error) {
-          console.warn(`Failed to stringify context key ${key}:`, value, error)
-          sanitizedContext[key] = ''
-        }
-      }
-    })
-
-    console.log("Context before sanitization:", context)
-    console.log("Sanitized context:", sanitizedContext)
     stream.submit(
-      { messages: [...toolMessages, newHumanMessage], context: sanitizedContext},
+      { messages: [...toolMessages, newHumanMessage], context},
       {
         streamMode: ["values"],
-        context: sanitizedContext,
+        context: context,
         optimisticValues: (prev) => ({
           ...prev,
           messages: [
@@ -358,45 +337,7 @@ export function Thread() {
             </div>
           )}
           {chatStarted && (
-            <div className="relative z-10 flex items-center justify-between gap-3 p-2">
-              <div className="relative flex items-center justify-start gap-2">
-                <div className="absolute left-0 z-10">
-                  {(!chatHistoryOpen || !isLargeScreen) && (
-                    <Button
-                      className="hover:bg-gray-100"
-                      variant="ghost"
-                      onClick={() => setChatHistoryOpen((p) => !p)}
-                    >
-                      {chatHistoryOpen ? (
-                        <PanelRightOpen className="size-5" />
-                      ) : (
-                        <PanelRightClose className="size-5" />
-                      )}
-                    </Button>
-                  )}
-                </div>
-                <motion.button
-                  className="flex cursor-pointer items-center gap-2"
-                  onClick={() => setThreadId(null)}
-                  animate={{
-                    marginLeft: !chatHistoryOpen ? 48 : 0,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                  }}
-                >
-                  <LangGraphLogoSVG
-                    width={32}
-                    height={32}
-                  />
-                  <span className="text-xl font-semibold tracking-tight">
-                    AI智能问数
-                  </span>
-                </motion.button>
-              </div>
-
+            <div className="relative z-10 flex items-center justify-end gap-3 p-2">
               <div className="flex items-center gap-4">
                 {/* 显示用户信息和数据源信息 */}
                 <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -543,11 +484,6 @@ export function Thread() {
                       </div>
                     </form>
                   </div>
-                  {user ? (
-                    <div className="fixed left-4 bottom-4">
-                      <button onClick={logout} className="text-sm text-gray-600 underline">退出登录</button>
-                    </div>
-                  ) : null}
                 </div>
               }
             />

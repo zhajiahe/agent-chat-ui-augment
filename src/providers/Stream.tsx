@@ -119,8 +119,8 @@ const StreamSession = ({
   );
 };
 
-// Default values for the form
-const DEFAULT_ASSISTANT_ID = "agent";
+// Default values for the form - read from environment variable
+const DEFAULT_ASSISTANT_ID = process.env.NEXT_PUBLIC_ASSISTANT_ID || "agent";
 
 export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   children,

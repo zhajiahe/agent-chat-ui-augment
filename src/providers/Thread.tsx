@@ -34,7 +34,7 @@ function getThreadSearchMetadata(
 }
 
 // Default values for the form
-const DEFAULT_ASSISTANT_ID = "agent";
+const DEFAULT_ASSISTANT_ID = process.env.NEXT_PUBLIC_ASSISTANT_ID || "agent";
 
 export function ThreadProvider({ children }: { children: ReactNode }) {
   // Get environment variables for fallback

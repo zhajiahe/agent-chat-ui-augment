@@ -8,6 +8,7 @@ type User = { username: string } | null;
 type AuthContextType = {
   user: User;
   token: string | null;
+  initialized: boolean;
   login: (payload: LoginRequest) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
   logout: () => void;
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User>(null);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     try {
@@ -28,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.debug("Auth init failed", e);
     }
+    setInitialized(true);
   }, []);
 
   const login = useCallback(async (payload: LoginRequest) => {
@@ -41,8 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(async (payload: RegisterRequest) => {
     await backendApi.register(payload);
-    await login({ username: payload.username, password: payload.password });
-  }, [login]);
+    // 注册成功后不自动登录，让用户手动登录以获得更好的用户体验
+  }, []);
 
   const logout = useCallback(() => {
     try {
@@ -55,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, token, login, register, logout }), [user, token, login, register, logout]);
+  const value = useMemo(() => ({ user, token, initialized, login, register, logout }), [user, token, initialized, login, register, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
