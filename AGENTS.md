@@ -59,6 +59,7 @@ UI and behavior:
   - If logged in (AuthProvider), can manage backend resources:
     - View/create/update/delete data sources.
     - View/create/update/delete memories for the selected data source.
+  - Auto-selects the first data source after refresh to keep memories in sync.
   - Shows that API routing is through the internal proxy and that the real URL is server-configured.
 
 Server proxy:
@@ -78,6 +79,7 @@ Server proxy:
 - `src/providers/Stream.tsx` — streaming session and health check
 - `src/providers/Thread.tsx` — thread search and state
 - `src/components/thread/index.tsx` — chat logic and submit path
+  - Hides the top-right user/data source indicator; submission context still carries `user_name` and `db_name`.
 - `src/components/thread/messages/*` — message renderers
 - `src/components/thread/artifact.tsx` — artifact panel
 - `src/components/settings/settings-dialog.tsx` — adjustable settings

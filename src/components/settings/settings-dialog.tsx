@@ -42,6 +42,20 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
     try {
       const list = await backendApi.listSources();
       setSources(list);
+      if (list.length > 0) {
+        setSelectedSourceId((prev) => {
+          if (!prev) {
+            refreshMemories(list[0].id);
+            return list[0].id;
+          }
+          const stillExists = list.find((item) => item.id === prev);
+          if (!stillExists) {
+            refreshMemories(list[0].id);
+            return list[0].id;
+          }
+          return prev;
+        });
+      }
     } catch (e: any) {
       toast.error(e?.message || "Failed to load data sources");
     }
@@ -61,14 +75,8 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
     setOpen(v);
     if (v && token) {
       await refreshSources();
-      // 如果没有数据源，强制显示新增表单
       if (!sources || sources.length === 0) {
         setShowAddSourceForm(true);
-      }
-      // 如果有数据源且没有选择，默认选择第一个
-      else if (sources && sources.length > 0 && !selectedSourceId) {
-        setSelectedSourceId(sources[0].id);
-        refreshMemories(sources[0].id);
       }
     }
   };
@@ -110,7 +118,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
         type: newMemory.type,
         is_active: newMemory.is_active
       });
-      toast.success("记忆已新增");
+      toast.success("知识已新增");
       await refreshMemories(selectedSourceId);
       setShowAddMemoryForm(false);
       setNewMemory({ content: '', type: 'other', is_active: true });
@@ -128,7 +136,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
         content: editingMemory.content,
         is_active: editingMemory.is_active
       });
-      toast.success("记忆已更新");
+      toast.success("知识已更新");
       await refreshMemories(selectedSourceId!);
       setShowEditMemoryForm(null);
       setEditingMemory(null);
@@ -141,6 +149,70 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
     setEditingMemory(memory);
     setShowEditMemoryForm(memory.id);
   };
+
+  const renderAddSourceForm = () => (
+    <div className="border rounded-lg p-4 bg-gray-50">
+      <form onSubmit={handleAddSource} className="space-y-4">
+        <h4 className="font-medium">新增数据源</h4>
+
+        <div className="space-y-2">
+          <Label htmlFor="sourceName">数据源名称</Label>
+          <Input
+            id="sourceName"
+            value={newSource.name}
+            onChange={(e) => setNewSource(prev => ({ ...prev, name: e.target.value }))}
+            placeholder="请输入数据源名称"
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="sourceDialect">数据库类型</Label>
+          <select
+            id="sourceDialect"
+            className="border rounded px-2 py-1 w-full"
+            value={newSource.dialect}
+            onChange={(e) => setNewSource(prev => ({ ...prev, dialect: e.target.value as DataSource['dialect'] }))}
+          >
+            <option value="postgresql">PostgreSQL</option>
+            <option value="mysql">MySQL</option>
+            <option value="oracle">Oracle</option>
+            <option value="sqlite">SQLite</option>
+            <option value="csv">CSV</option>
+            <option value="excel">Excel</option>
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="sourceDetails">连接配置 (JSON格式)</Label>
+          <textarea
+            id="sourceDetails"
+            className="border rounded px-2 py-1 w-full h-20 font-mono text-sm"
+            value={newSource.connection_details}
+            onChange={(e) => setNewSource(prev => ({ ...prev, connection_details: e.target.value }))}
+            placeholder='{"host": "localhost", "port": 5432, "database": "mydb"}'
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <Button type="submit" size="sm">
+            创建数据源
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setShowAddSourceForm(false);
+              setNewSource({ name: '', dialect: 'sqlite', connection_details: '{}' });
+            }}
+          >
+            取消
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
 
   const TriggerComponent = variant === "icon" ? (
     <TooltipIconButton
@@ -180,13 +252,17 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
                     您还没有配置任何数据源，请先添加一个数据源以开始使用系统。
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
-                  onClick={() => setShowAddSourceForm(true)}
-                >
-                  <Plus className="w-4 h-4" /> 新增数据源
-                </button>
+                {showAddSourceForm ? (
+                  renderAddSourceForm()
+                ) : (
+                  <button
+                    type="button"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+                    onClick={() => setShowAddSourceForm(true)}
+                  >
+                    <Plus className="w-4 h-4" /> 新增数据源
+                  </button>
+                )}
               </div>
             ) : (
               <div className="mt-3 space-y-3">
@@ -216,72 +292,12 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
 
                 {/* Add Data Source Form */}
                 {showAddSourceForm && (
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <form onSubmit={handleAddSource} className="space-y-4">
-                      <h4 className="font-medium">新增数据源</h4>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="sourceName">数据源名称</Label>
-                        <Input
-                          id="sourceName"
-                          value={newSource.name}
-                          onChange={(e) => setNewSource(prev => ({ ...prev, name: e.target.value }))}
-                          placeholder="请输入数据源名称"
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="sourceDialect">数据库类型</Label>
-                        <select
-                          id="sourceDialect"
-                          className="border rounded px-2 py-1 w-full"
-                          value={newSource.dialect}
-                          onChange={(e) => setNewSource(prev => ({ ...prev, dialect: e.target.value as DataSource['dialect'] }))}
-                        >
-                          <option value="postgresql">PostgreSQL</option>
-                          <option value="mysql">MySQL</option>
-                          <option value="oracle">Oracle</option>
-                          <option value="sqlite">SQLite</option>
-                          <option value="csv">CSV</option>
-                          <option value="excel">Excel</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="sourceDetails">连接配置 (JSON格式)</Label>
-                        <textarea
-                          id="sourceDetails"
-                          className="border rounded px-2 py-1 w-full h-20 font-mono text-sm"
-                          value={newSource.connection_details}
-                          onChange={(e) => setNewSource(prev => ({ ...prev, connection_details: e.target.value }))}
-                          placeholder='{"host": "localhost", "port": 5432, "database": "mydb"}'
-                        />
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button type="submit" size="sm">
-                          创建数据源
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setShowAddSourceForm(false);
-                            setNewSource({ name: '', dialect: 'sqlite', connection_details: '{}' });
-                          }}
-                        >
-                          取消
-                        </Button>
-                      </div>
-                    </form>
-                  </div>
+                  renderAddSourceForm()
                 )}
                 {selectedSourceId && (
                   <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
                     <p className="text-sm text-blue-800">
-                      数据源已选择，记忆管理功能已启用
+                      数据源已选择，知识管理功能已启用
                     </p>
                   </div>
                 )}
@@ -291,11 +307,11 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
 
           {/* Memories Management */}
           <div className="pt-4 border-t">
-            <Label>记忆管理</Label>
+            <Label>知识管理</Label>
             {!token ? (
-              <p className="text-sm text-muted-foreground mt-2">请先登录以管理记忆</p>
+              <p className="text-sm text-muted-foreground mt-2">请先登录以管理知识</p>
             ) : !selectedSourceId ? (
-              <p className="text-sm text-muted-foreground mt-2">请选择数据源以查看/管理记忆</p>
+              <p className="text-sm text-muted-foreground mt-2">请选择数据源以查看/管理知识</p>
             ) : (
               <div className="mt-3 space-y-3">
                 <div className="flex items-center gap-2">
@@ -304,7 +320,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
                     className="text-sm inline-flex items-center gap-1"
                     onClick={() => setShowAddMemoryForm(true)}
                   >
-                    <Plus className="w-4 h-4" /> 新增记忆
+                    <Plus className="w-4 h-4" /> 新增知识
                   </button>
                 </div>
 
@@ -312,16 +328,16 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
                 {showAddMemoryForm && (
                   <div className="border rounded-lg p-4 bg-gray-50">
                     <form onSubmit={handleAddMemory} className="space-y-4">
-                      <h4 className="font-medium">新增记忆</h4>
+                      <h4 className="font-medium">新增知识</h4>
 
                       <div className="space-y-2">
-                        <Label htmlFor="memoryContent">记忆内容</Label>
+                        <Label htmlFor="memoryContent">知识内容</Label>
                         <textarea
                           id="memoryContent"
                           className="border rounded px-2 py-1 w-full h-20 font-mono text-sm"
                           value={newMemory.content}
                           onChange={(e) => setNewMemory(prev => ({ ...prev, content: e.target.value }))}
-                          placeholder="请输入记忆内容"
+                          placeholder="请输入知识内容"
                           required
                         />
                       </div>
@@ -353,7 +369,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
 
                       <div className="flex gap-2">
                         <Button type="submit" size="sm">
-                          创建记忆
+                          创建知识
                         </Button>
                         <Button
                           type="button"
@@ -377,10 +393,10 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
                       {showEditMemoryForm === m.id ? (
                         <div className="border rounded-lg p-3 bg-gray-50">
                           <form onSubmit={handleEditMemory} className="space-y-3">
-                            <h5 className="font-medium">编辑记忆</h5>
+                            <h5 className="font-medium">编辑知识</h5>
 
                             <div className="space-y-2">
-                              <Label htmlFor={`memoryContent-${m.id}`}>记忆内容</Label>
+                              <Label htmlFor={`memoryContent-${m.id}`}>知识内容</Label>
                               <textarea
                                 id={`memoryContent-${m.id}`}
                                 className="border rounded px-2 py-1 w-full h-20 font-mono text-sm"
@@ -455,7 +471,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
                               type="button"
                               className="text-sm inline-flex items-center gap-1 text-rose-600"
                               onClick={async () => {
-                                if (!confirm("确定删除该记忆？")) return;
+                                if (!confirm("确定删除该知识？")) return;
                                 try {
                                   await backendApi.deleteMemory(m.id);
                                   toast.success("已删除");

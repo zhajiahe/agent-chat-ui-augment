@@ -43,7 +43,7 @@ import {
   ArtifactTitle,
   useArtifactContext,
 } from "./artifact";
-import { backendApi, DataSource } from "@/lib/backend-client";
+import { backendApi } from "@/lib/backend-client";
  
 
 function StickyToBottomContent(props: {
@@ -88,7 +88,7 @@ function ScrollToBottom(props: { className?: string }) {
 }
 
 export function Thread() {
-  const { user, logout, token } = useAuth();
+  const { token } = useAuth();
   const [artifactContext, setArtifactContext] = useArtifactContext();
   const [artifactOpen, closeArtifact] = useArtifactOpen();
 
@@ -106,7 +106,6 @@ export function Thread() {
   // 用户和数据源信息状态
   const [userName, setUserName] = useState<string>("");
   const [dataSourceName, setDataSourceName] = useState<string>("");
-  const [currentDataSource, setCurrentDataSource] = useState<DataSource | null>(null);
 
   const [input, setInput] = useState("");
   
@@ -130,37 +129,33 @@ export function Thread() {
   // 获取用户和数据源信息
   useEffect(() => {
     const fetchUserAndDataSource = async () => {
-      if (!user || !token) return;
+      if (!token) {
+        setUserName("");
+        setDataSourceName("");
+        return;
+      }
 
       try {
-        // 获取用户信息
         const userInfo = await backendApi.getCurrentUser();
         const username = String(userInfo.username || '');
         setUserName(username);
-        console.log("User info loaded:", username);
 
-        // 获取数据源列表
         const sources = await backendApi.listSources();
         if (sources && sources.length > 0) {
-          // 默认选择第一个数据源
-          const firstSource = sources[0];
-          setCurrentDataSource(firstSource);
-          const dsName = String(firstSource.name || '');
+          const dsName = String(sources[0].name || '');
           setDataSourceName(dsName);
-          console.log("Data source loaded:", dsName);
         } else {
-          console.log("No data sources found");
+          setDataSourceName('');
         }
       } catch (error) {
         console.error("Failed to fetch user or data source info:", error);
-        // 设置默认值
-        setUserName(String(user?.username || ''));
+        setUserName('');
         setDataSourceName('');
       }
     };
 
     fetchUserAndDataSource();
-  }, [user, token]);
+  }, [token]);
 
   useEffect(() => {
     if (!stream.error) {
@@ -219,14 +214,14 @@ export function Thread() {
 
     const toolMessages = ensureToolCallsHaveResponses(stream.messages);
 
-    const context =
-      Object.keys(artifactContext).length > 0 ? artifactContext : {};
+    const context = {
+      ...artifactContext,
+      user_name: String(userName || ''),
+      db_name: String(dataSourceName || ''),
+    };
 
-    // 确保用户信息和数据源名称是字符串类型，避免序列化错误
-    context.user_name = String(userName || '')
-    context.db_name = String(dataSourceName || '')
     stream.submit(
-      { messages: [...toolMessages, newHumanMessage], context},
+      { messages: [...toolMessages, newHumanMessage], context },
       {
         streamMode: ["values"],
         context: context,
@@ -339,12 +334,6 @@ export function Thread() {
           {chatStarted && (
             <div className="relative z-10 flex items-center justify-end gap-3 p-2">
               <div className="flex items-center gap-4">
-                {/* 显示用户信息和数据源信息 */}
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span>用户: {userName || "未登录"}</span>
-                  <span>|</span>
-                  <span>数据源: {dataSourceName || "未选择"}</span>
-                </div>
                 <TooltipIconButton
                   size="lg"
                   className="p-4"
