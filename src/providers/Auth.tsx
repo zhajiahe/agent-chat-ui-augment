@@ -21,17 +21,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User>(null);
   const [initialized, setInitialized] = useState(false);
 
-  useEffect(() => {
+  const clearAuthState = useCallback(() => {
     try {
-      const t = localStorage.getItem("backend_access_token");
-      const u = localStorage.getItem("backend_user");
-      if (t) setToken(t);
-      if (u) setUser(JSON.parse(u));
+      localStorage.removeItem("backend_access_token");
+      localStorage.removeItem("backend_user");
     } catch (e) {
-      console.debug("Auth init failed", e);
+      console.debug("Auth cleanup failed", e);
     }
-    setInitialized(true);
+    setToken(null);
+    setUser(null);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleUnauthorized = () => {
+      clearAuthState();
+      setInitialized(true);
+    };
+
+    window.addEventListener("backend:unauthorized", handleUnauthorized);
+    return () => {
+      window.removeEventListener("backend:unauthorized", handleUnauthorized);
+    };
+  }, [clearAuthState]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const init = async () => {
+      try {
+        const t = localStorage.getItem("backend_access_token");
+        const u = localStorage.getItem("backend_user");
+
+        if (!t) {
+          if (isMounted) setInitialized(true);
+          return;
+        }
+
+        setToken(t);
+
+        if (u) {
+          try {
+            setUser(JSON.parse(u));
+          } catch (error) {
+            console.debug("Failed to parse stored user", error);
+          }
+        }
+
+        try {
+          const current = await backendApi.getCurrentUser();
+          if (!isMounted) return;
+          const verifiedUser = { username: current.username };
+          setUser(verifiedUser);
+          localStorage.setItem("backend_user", JSON.stringify(verifiedUser));
+        } catch (error) {
+          if (!isMounted) return;
+          if (error instanceof Error) {
+            console.debug("Token validation failed", error.message);
+          }
+          clearAuthState();
+        }
+      } catch (error) {
+        if (!isMounted) return;
+        console.debug("Auth init failed", error);
+        clearAuthState();
+      } finally {
+        if (isMounted) setInitialized(true);
+      }
+    };
+
+    void init();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [clearAuthState]);
 
   const login = useCallback(async (payload: LoginRequest) => {
     const res = await backendApi.login(payload);
@@ -48,15 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    try {
-      localStorage.removeItem("backend_access_token");
-      localStorage.removeItem("backend_user");
-    } catch (e) {
-      console.debug("Auth logout cleanup failed", e);
-    }
-    setToken(null);
-    setUser(null);
-  }, []);
+    clearAuthState();
+  }, [clearAuthState]);
 
   const value = useMemo(() => ({ user, token, initialized, login, register, logout }), [user, token, initialized, login, register, logout]);
 

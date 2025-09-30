@@ -114,8 +114,14 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: u
     ...(body ? { body } : {}),
   });
   if (!res.ok) {
+    if (typeof window !== "undefined" && res.status === 401) {
+      window.dispatchEvent(new Event("backend:unauthorized"));
+    }
+
     const text = await res.text().catch(() => "");
-    throw new Error(text || `Request failed: ${res.status}`);
+    const error = new Error(text || `Request failed: ${res.status}`) as Error & { status?: number };
+    error.status = res.status;
+    throw error;
   }
   if (res.status === 204) return undefined as unknown as T;
   return (await res.json()) as T;

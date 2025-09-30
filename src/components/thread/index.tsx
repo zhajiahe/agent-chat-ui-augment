@@ -99,6 +99,7 @@ export function Thread() {
   // 用户和数据源信息状态
   const [userName, setUserName] = useState<string>("");
   const [dataSourceName, setDataSourceName] = useState<string>("");
+  const [selectedDataSourceId, setSelectedDataSourceId] = useState<number | null>(null);
 
   const [input, setInput] = useState("");
   
@@ -119,6 +120,26 @@ export function Thread() {
     setArtifactContext({});
   };
 
+  // 处理数据源切换
+  const handleDataSourceChange = (sourceId: number | null) => {
+    setSelectedDataSourceId(sourceId);
+  };
+
+  // 监听数据源切换事件
+  useEffect(() => {
+    const handleDataSourceChanged = (event: CustomEvent) => {
+      const { sourceId } = event.detail;
+      setSelectedDataSourceId(sourceId);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('dataSourceChanged', handleDataSourceChanged as EventListener);
+      return () => {
+        window.removeEventListener('dataSourceChanged', handleDataSourceChanged as EventListener);
+      };
+    }
+  }, []);
+
   // 获取用户和数据源信息
   useEffect(() => {
     const fetchUserAndDataSource = async () => {
@@ -135,7 +156,11 @@ export function Thread() {
 
         const sources = await backendApi.listSources();
         if (sources && sources.length > 0) {
-          const dsName = String(sources[0].name || '');
+          // 如果有选中的数据源ID，使用对应的数据源；否则使用第一个
+          const targetSource = selectedDataSourceId
+            ? sources.find(s => s.id === selectedDataSourceId) || sources[0]
+            : sources[0];
+          const dsName = String(targetSource.name || '');
           setDataSourceName(dsName);
         } else {
           setDataSourceName('');
@@ -148,7 +173,7 @@ export function Thread() {
     };
 
     fetchUserAndDataSource();
-  }, [token]);
+  }, [token, selectedDataSourceId]);
 
   useEffect(() => {
     if (!stream.error) {

@@ -46,11 +46,23 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
         setSelectedSourceId((prev) => {
           if (!prev) {
             refreshMemories(list[0].id);
+            // 触发全局事件通知聊天组件数据源已切换
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('dataSourceChanged', {
+                detail: { sourceId: list[0].id }
+              }));
+            }
             return list[0].id;
           }
           const stillExists = list.find((item) => item.id === prev);
           if (!stillExists) {
             refreshMemories(list[0].id);
+            // 触发全局事件通知聊天组件数据源已切换
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('dataSourceChanged', {
+                detail: { sourceId: list[0].id }
+              }));
+            }
             return list[0].id;
           }
           return prev;
@@ -75,9 +87,22 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
     setOpen(v);
     if (v && token) {
       await refreshSources();
-      if (!sources || sources.length === 0) {
-        setShowAddSourceForm(true);
-      }
+      // 不再自动显示新建数据源表单
+    }
+  };
+
+  // 处理数据源切换
+  const handleDataSourceChange = (sourceId: number | null) => {
+    setSelectedSourceId(sourceId);
+    if (sourceId) {
+      refreshMemories(sourceId);
+    }
+
+    // 触发全局事件通知聊天组件数据源已切换
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('dataSourceChanged', {
+        detail: { sourceId }
+      }));
     }
   };
 
@@ -92,9 +117,8 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
       });
       toast.success("数据源已创建");
       await refreshSources();
-      setSelectedSourceId(created.id);
       // 自动选择新创建的数据源并加载记忆
-      refreshMemories(created.id);
+      handleDataSourceChange(created.id);
       setShowAddSourceForm(false);
       setNewSource({ name: '', dialect: 'sqlite', connection_details: '{}' });
 
@@ -272,8 +296,7 @@ export function SettingsDialog({ variant = "icon", size = "default" }: SettingsD
                     value={selectedSourceId ?? ""}
                     onChange={(e) => {
                       const val = e.target.value ? Number(e.target.value) : null;
-                      setSelectedSourceId(val);
-                      if (val) refreshMemories(val);
+                      handleDataSourceChange(val);
                     }}
                   >
                     <option value="">选择数据源</option>
